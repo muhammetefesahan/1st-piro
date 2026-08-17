@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Kararlarınızı ağırlıklandırın ve fikrinizi değiştirecek eşiği görün.">
+  <title>Karar Terazisi</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <span class="eyebrow">01 / GÜNLÜK MİNİ PROJE</span>
+      <h1>Karar<br><em>Terazisi</em></h1>
+      <p>İki seçeneği puanla. Sadece kazananı değil, kararını değiştirecek en küçük ağırlık kaymasını da gör.</p>
+    </header>
+
+    <section class="card" aria-labelledby="options-title">
+      <div class="section-title"><span>01</span><h2 id="options-title">Seçenekler</h2></div>
+      <div class="option-names">
+        <label>A seçeneği<input id="name-a" value="Şehir bisikleti" maxlength="32"></label>
+        <label>B seçeneği<input id="name-b" value="Elektrikli scooter" maxlength="32"></label>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="criteria-title">
+      <div class="section-title"><span>02</span><h2 id="criteria-title">Kriterler</h2></div>
+      <p class="hint">Ağırlıklar otomatik olarak yüzdeye çevrilir. Puanlar 1–10 arasındadır.</p>
+      <div id="criteria"></div>
+      <button class="ghost" id="add" type="button">+ Kriter ekle</button>
+    </section>
+
+    <section class="result" aria-live="polite">
+      <span class="eyebrow">SONUÇ</span>
+      <h2 id="winner">Hesaplanıyor…</h2>
+      <div class="scores"><span id="score-a"></span><span id="score-b"></span></div>
+      <div class="meter"><i id="meter-fill"></i></div>
+      <p id="insight"></p>
+    </section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
