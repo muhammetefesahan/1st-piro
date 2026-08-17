@@ -1,0 +1,8 @@
+{
+  "name": "1st-piro",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
