@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Günlük alışkanlıkları küçük adımlara bölen ve kıvılcım puanı hesaplayan yerel takip panosu.">
+  <title>Daily Habit Spark</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="workspace" aria-labelledby="app-title">
+      <header class="topbar">
+        <div>
+          <p class="kicker">02 / Günlük mini proje</p>
+          <h1 id="app-title">Daily Habit Spark</h1>
+        </div>
+        <output class="spark-score" id="spark-score" aria-live="polite">
+          <span id="spark-value">0</span>
+          <small>kıvılcım</small>
+        </output>
+      </header>
+
+      <form class="composer" id="habit-form" autocomplete="off">
+        <label for="habit-input">Alışkanlık</label>
+        <div class="compose-row">
+          <input id="habit-input" name="habit" type="text" maxlength="42" placeholder="10 dakika yürüyüş">
+          <button type="submit">Ekle</button>
+        </div>
+      </form>
+
+      <section class="dashboard" aria-label="Günlük durum">
+        <article class="status-panel">
+          <span id="done-count">0 tamam</span>
+          <strong id="completion-rate">0%</strong>
+          <p id="daily-nudge">Bugün başlamak için küçük bir alışkanlık ekle.</p>
+        </article>
+
+        <div class="habit-stack" id="habit-list" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+
+  <template id="habit-template">
+    <article class="habit-card">
+      <button class="check-button" type="button" aria-label="Alışkanlığı tamamlandı olarak işaretle"></button>
+      <div>
+        <h2></h2>
+        <p></p>
+      </div>
+      <button class="remove-button" type="button" aria-label="Alışkanlığı sil">Sil</button>
+    </article>
+  </template>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
