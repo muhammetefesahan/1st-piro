@@ -137,3 +137,36 @@ test("zombi haritasında kapılar bölgeleri birbirine bağlar", () => {
   assert.equal(Number.isFinite(closed[box.x + box.z * grid.w]), false, "kapılar kapalıyken avlu kapalı olmalı");
   for (const id of Object.keys(m.doors)) assert.ok(m.rows.some((r) => r.includes(id)), "kapı " + id + " haritada");
 });
+
+test("günlük görevler güne göre sabit ve tekrarsız", () => {
+  const a = G.dailyChallenges("2026-10-06");
+  const b = G.dailyChallenges("2026-10-06");
+  assert.equal(a.length, 3);
+  assert.deepEqual(a.map((c) => c.id), b.map((c) => c.id));
+  assert.equal(new Set(a.map((c) => c.id)).size, 3);
+  const other = G.dailyChallenges("2026-10-07").map((c) => c.id).join();
+  assert.ok(typeof other === "string");
+});
+
+test("kamuflaj kilitleri ve silah seviyesi", () => {
+  assert.ok(G.camoUnlocked("yok", 0));
+  assert.ok(!G.camoUnlocked("altin", 119));
+  assert.ok(G.camoUnlocked("altin", 120));
+  for (let i = 1; i < G.CAMOS.length; i++) assert.ok(G.CAMOS[i].need > G.CAMOS[i - 1].need, "kamuflaj eşikleri artmalı");
+  let last = 0;
+  for (const xp of [0, 250, 1000, 5000, 50000, 1e7]) {
+    const l = G.weaponLevel(xp);
+    assert.ok(l.level >= last && l.level <= 30);
+    last = l.level;
+  }
+  assert.equal(G.weaponLevel(0).level, 1);
+  assert.equal(G.weaponLevel(1e7).need, 0);
+});
+
+test("rütbe listesi sıralı ve operatör kilitleri ulaşılabilir", () => {
+  for (let i = 1; i < G.RANKS.length; i++) assert.ok(G.RANKS[i][0] > G.RANKS[i - 1][0]);
+  assert.equal(G.RANKS[G.RANKS.length - 1][0], G.MAX_LEVEL);
+  for (const [id, o] of Object.entries(G.OPERATORS)) assert.ok(o.unlock >= 1 && o.unlock <= G.MAX_LEVEL, id);
+  for (const [id, m] of Object.entries(G.MELEE)) assert.ok(m.unlock >= 1 && m.unlock <= G.MAX_LEVEL, id);
+  assert.ok(Object.values(G.OPERATORS).some((o) => o.unlock === 1), "başlangıçta en az bir operatör açık olmalı");
+});

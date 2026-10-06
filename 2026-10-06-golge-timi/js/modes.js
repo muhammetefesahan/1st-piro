@@ -43,6 +43,7 @@
       const def = G.MAPS[cfg.map];
       const world = (this.world = G.world = new G.World(def));
       world.build(scene);
+      if (G.setGrade) G.setGrade(def.theme.grade);
       G.fx.init(scene);
       G.combat.reset();
       G.streaks.reset();
@@ -333,6 +334,9 @@
         p.score += v;
       }
       if (info.headshot) G.profile.headshots++;
+      for (const [name] of medals) G.progress.medal(name);
+      if (this.multi.n === 2) G.progress.stat('multiKill', 1);
+      G.progress.kill(info.weaponId, info, { tea: G.time < p.cayUntil, slide: p.slideT > 0 || p.diving });
     }
 
     botStreak(k) {
@@ -355,6 +359,7 @@
         victim: victim.name,
         vteam: victim.team,
         weapon: info.weapon || '',
+        weaponId: info.weaponId || '',
         head: !!info.headshot,
         t: G.time,
       };
@@ -532,6 +537,7 @@
       if (this.flags.length) this.updateFlags(dt);
       G.streaks.update(dt);
       G.combat.update(dt);
+      G.combat.updateBurns(dt, this.chars);
       // doğmalar
       for (let i = this.respawns.length - 1; i >= 0; i--) {
         const r = this.respawns[i];
@@ -592,6 +598,8 @@
       G.profile.deaths += p.deaths;
       G.profile.matches++;
       if (win) G.profile.wins++;
+      if (win && this.mode !== 'story') G.progress.stat('win', 1);
+      if (this.mode === 'story' && win) G.progress.stat('storyWin', 1);
       if (this.mode === 'story' && win) {
         const done = G.store.get('storyDone', {});
         done[this.cfg.mission] = true;
@@ -615,6 +623,7 @@
       const isRecord = zd.round > G.profile.bestRound;
       G.profile.bestRound = best;
       G.profile.zmKills += zd.kills;
+      G.progress.stat('zmRound', zd.round, true);
       G.profile.matches++;
       const xp = zd.kills * 15 + zd.round * 100;
       const before = G.levelFromXp(G.profile.xp);
@@ -799,6 +808,7 @@
           const sc = this.challenge.score;
           const rec = sc > G.profile.rangeBest;
           if (rec) G.profile.rangeBest = sc;
+          G.progress.stat('rangeScore', sc, true);
           G.profile.xp += Math.round(sc / 10);
           G.saveProfile();
           G.hud.bigMessage('GÖREV BİTTİ', `${this.challenge.hits} isabet · ${sc} puan${rec ? ' · YENİ REKOR!' : ''}`);

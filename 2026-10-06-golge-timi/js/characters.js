@@ -31,149 +31,338 @@
   }
 
   const TEAM_LOOK = {
-    0: { uniform: 0x48523f, vest: 0x2f3a2c, accent: 0x4cc3ff, helmet: 0x3b4633 }, // Gölge Timi
-    1: { uniform: 0x3b3a40, vest: 0x22232a, accent: 0xff4d3d, helmet: 0x2a2a30 }, // Kızıl Pençe
-    2: { uniform: 0x6a5a40, vest: 0x40352a, accent: 0xffc23a, helmet: 0x4a4030 },
+    0: { uniform: 'orman', vest: 0x3a4430, vest2: 0x2e3626, accent: 0x4cc3ff, helmet: 0x3e4a34, pants: 'orman' },
+    1: { uniform: 'gece', vest: 0x1e1f24, vest2: 0x2a2b30, accent: 0xff4d3d, helmet: 0x26272c, pants: 'gece' },
+    2: { uniform: 'col', vest: 0x6a5a40, vest2: 0x58492f, accent: 0xffc23a, helmet: 0x7a6a4a, pants: 'col' },
   };
   G.TEAM_LOOK = TEAM_LOOK;
   G.TEAM_NAMES = ['Gölge Timi', 'Kızıl Pençe'];
 
+  const tm = {};
+  function tmat(camo, tint) {
+    const k = camo + ':' + tint;
+    if (tm[k]) return tm[k];
+    const params = { color: tint != null ? tint : 0xffffff, roughness: 0.95, metalness: 0.0, map: G.camoTexture(camo) };
+    return (tm[k] = G.settings.quality === 'dusuk' ? new THREE.MeshLambertMaterial(params) : new THREE.MeshStandardMaterial(params));
+  }
+
+  const DOWN = new THREE.Vector3(0, -1, 0);
+  const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+  const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
+  // İki kemikli kol IK'sı (gövde uzayında)
+  function solveArm(arm, elbow, S, T, side, a, b) {
+    const D = _v1.copy(T).sub(S);
+    let d = D.length();
+    const dir = D.normalize();
+    d = U.clamp(d, 0.05, a + b - 0.002);
+    const cosA = U.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1);
+    const sinA = Math.sqrt(1 - cosA * cosA);
+    const hint = _v2.set(side * 0.55, -1, 0.4).normalize();
+    const perp = hint.sub(_v3.copy(dir).multiplyScalar(hint.dot(dir))).normalize();
+    const u = _v3.copy(dir).multiplyScalar(cosA).addScaledVector(perp, sinA).normalize();
+    _q1.setFromUnitVectors(DOWN, u);
+    arm.quaternion.copy(_q1);
+    const E = _v2.copy(S).addScaledVector(u, a);
+    const v = E.sub(T).multiplyScalar(-1).normalize();
+    _q2.setFromUnitVectors(DOWN, v);
+    elbow.quaternion.copy(_q1).invert().multiply(_q2);
+  }
+
   // ------------------------------------------------------------------
-  // Asker / zombi modeli
+  // Asker / operatör / zombi modeli
   // ------------------------------------------------------------------
   G.makeHumanoid = function (o) {
     const zombie = o.kind === 'zombie';
-    const look = zombie ? null : TEAM_LOOK[o.look != null ? o.look : 0] || TEAM_LOOK[0];
-    const skin = zombie ? U.pick([0x6f8a62, 0x7d8f6a, 0x667a5e, 0x8a8f72]) : U.pick([0xd8a47f, 0xc68a62, 0xa8714d, 0xe0b48f]);
-    const shirt = zombie ? U.pick([0x5a4a3a, 0x3e4a5a, 0x6a2e2a, 0x4a4a42, 0xc8c2b0]) : look.uniform;
-    const pants = zombie ? U.pick([0x2e3442, 0x3d3a33, 0x4a4036]) : look.uniform;
+    const team = o.look != null ? o.look : 0;
+    const TL = TEAM_LOOK[team] || TEAM_LOOK[0];
+    const op = !zombie && team === 0 && o.operator ? G.OPERATORS[o.operator] : null;
+    const zv = zombie ? o.variant || U.pick(['sivil', 'sivil', 'bilim', 'asker', 'hazmat']) : null;
+    const skin = zombie ? U.pick([0x6f8a62, 0x7d8f6a, 0x667a5e, 0x8a8f72, 0x7a6e5a]) : op ? op.skin : U.pick([0xd8a47f, 0xc68a62, 0xa8714d, 0xe0b48f]);
+    const skinM = mat(skin);
+    const dark = mat(0x161718);
+    const glove = mat(zombie ? skin : 0x1d1f1e);
+    let uni, pants, vestM, vest2M;
+    if (zombie) {
+      const shirtCol = { sivil: U.pick([0x5a4a3a, 0x3e4a5a, 0x6a2e2a, 0x8a8a80]), bilim: 0xd8d8d0, asker: 0x4a5236, hazmat: 0xc8b020 }[zv];
+      uni = zv === 'asker' ? tmat('orman', 0x9a9a90) : mat(shirtCol);
+      pants = zv === 'hazmat' ? mat(0xc8b020) : zv === 'asker' ? tmat('orman', 0x9a9a90) : mat(U.pick([0x2e3442, 0x3d3a33, 0x4a4036]));
+    } else {
+      const camo = op && op.snow ? 'kis' : TL.uniform;
+      uni = tmat(camo, team === 1 ? 0xb0b0b8 : 0xe0e0d8);
+      pants = uni;
+      vestM = mat(op && op.snow ? 0xd8dce0 : TL.vest);
+      vest2M = mat(op && op.snow ? 0xb8bec4 : TL.vest2);
+    }
     const root = new THREE.Group();
     const hips = new THREE.Group();
-    hips.position.y = 0.92;
+    hips.position.y = 0.95;
     root.add(hips);
-    const mkLeg = (x) => {
-      const l = new THREE.Group();
-      l.position.set(x, 0, 0);
-      add(l, box(0.17, 0.62, 0.2), mat(pants), 0, -0.31, 0);
-      add(l, box(0.16, 0.3, 0.18), mat(pants), 0, -0.72, 0);
-      add(l, box(0.18, 0.12, 0.27), mat(zombie ? 0x2a2420 : 0x1e1d1b), 0, -0.86, -0.04);
-      hips.add(l);
-      return l;
-    };
-    const legL = mkLeg(-0.11), legR = mkLeg(0.11);
+
+    // bacaklar
+    const legs = [];
+    for (const side of [-1, 1]) {
+      const leg = new THREE.Group();
+      leg.name = side < 0 ? 'legL' : 'legR';
+      leg.position.set(side * 0.105, 0, 0);
+      add(leg, box(0.17, 0.48, 0.2), pants, 0, -0.24, 0);
+      if (!zombie) add(leg, box(0.08, 0.12, 0.05), vest2M, side * 0.07, -0.2, -0.04);
+      const knee = new THREE.Group();
+      knee.name = 'knee';
+      knee.position.y = -0.47;
+      add(knee, box(0.15, 0.4, 0.17), pants, 0, -0.2, 0);
+      if (!zombie) add(knee, box(0.14, 0.1, 0.05), mat(0x222420), 0, -0.04, -0.1);
+      add(knee, box(0.17, 0.11, 0.27), mat(zombie ? 0x2a2420 : 0x24221e), 0, -0.42, -0.04);
+      leg.add(knee);
+      hips.add(leg);
+      legs.push({ leg, knee });
+    }
+    // gövde
     const torso = new THREE.Group();
+    torso.name = 'torso';
     hips.add(torso);
-    add(torso, box(0.44, 0.58, 0.25), mat(shirt), 0, 0.29, 0);
+    add(torso, box(0.38, 0.28, 0.23), uni, 0, 0.14, 0);
+    add(torso, box(0.44, 0.3, 0.26), uni, 0, 0.43, 0);
     if (!zombie) {
-      add(torso, box(0.48, 0.38, 0.31), mat(look.vest), 0, 0.33, 0);
-      add(torso, box(0.12, 0.1, 0.06), mat(look.vest), -0.12, 0.22, -0.17);
-      add(torso, box(0.12, 0.1, 0.06), mat(look.vest), 0.0, 0.22, -0.17);
-      add(torso, box(0.5, 0.06, 0.32), mat(0x1c1c1a), 0, 0.03, 0);
-      // kol bandı (takım rengi)
+      add(torso, box(0.47, 0.34, 0.31), vestM, 0, 0.38, 0);
+      for (let i = 0; i < 3; i++) add(torso, box(0.1, 0.12, 0.06), vest2M, -0.12 + i * 0.12, 0.27, -0.18);
+      add(torso, box(0.42, 0.06, 0.27), dark, 0, 0.02, 0);
+      add(torso, box(0.06, 0.12, 0.05), dark, -0.17, 0.5, -0.17);
+      add(torso, box(0.012, 0.28, 0.012), dark, -0.19, 0.72, 0.1);
+      add(torso, box(0.34, 0.36, 0.15), vest2M, 0, 0.38, 0.22);
+      add(torso, box(0.12, 0.08, 0.06), vestM, 0.12, 0.08, 0.13);
+      if (op && op.thermos) {
+        add(torso, new THREE.CylinderGeometry(0.045, 0.045, 0.24, 8), mat(0xb8862e, { emissive: 0x201000 }), 0.21, 0.38, 0.22);
+        add(torso, new THREE.CylinderGeometry(0.05, 0.05, 0.04, 8), mat(0x222222), 0.21, 0.52, 0.22);
+      }
+      if (team === 1 && Math.random() < 0.5) add(torso, box(0.32, 0.08, 0.3), mat(0x8a1a14), 0, 0.6, 0);
     } else {
-      add(torso, box(0.3, 0.2, 0.02), mat(0x5a0f0f), 0.05, 0.3, -0.13);
+      if (zv === 'bilim') add(torso, box(0.47, 0.8, 0.29), mat(0xdedcd4), 0, 0.2, 0);
+      if (Math.random() < 0.45) {
+        add(torso, box(0.18, 0.16, 0.02), mat(0x5a0f0f), 0.06, 0.38, -0.135);
+        for (let i = 0; i < 3; i++) add(torso, box(0.16, 0.02, 0.022), mat(0xd8cfb8), 0.06, 0.33 + i * 0.045, -0.14);
+      }
+      if (zv === 'asker') add(torso, box(0.47, 0.3, 0.3), mat(0x3a4430), 0, 0.4, 0);
     }
-    const head = new THREE.Group();
-    head.position.y = 0.6;
-    torso.add(head);
-    add(head, box(0.24, 0.26, 0.25), mat(skin), 0, 0.13, 0);
-    if (!zombie) {
-      add(head, box(0.29, 0.12, 0.31), mat(look.helmet), 0, 0.29, 0.01);
-      add(head, box(0.3, 0.04, 0.32), mat(look.helmet), 0, 0.22, 0.0);
-      const visor = add(head, box(0.22, 0.05, 0.02), mat(0x111111, { emissive: look.accent, ei: 0.5 }), 0, 0.17, -0.13);
-      visor.castShadow = false;
-      add(head, box(0.2, 0.08, 0.02), mat(0x2a2a2a), 0, 0.06, -0.128);
-    } else {
-      const eyeM = new THREE.MeshBasicMaterial({ color: o.eyeColor || 0xffa020 });
-      add(head, box(0.05, 0.03, 0.02), eyeM, -0.06, 0.16, -0.13);
-      add(head, box(0.05, 0.03, 0.02), eyeM, 0.06, 0.16, -0.13);
-      add(head, box(0.12, 0.04, 0.02), mat(0x3a0a0a), 0, 0.05, -0.128);
-      add(head, box(0.2, 0.06, 0.2), mat(0x2a2a20), 0.02, 0.27, 0.02);
-    }
-    const mkArm = (x) => {
-      const a = new THREE.Group();
-      a.position.set(x, 0.52, 0);
-      add(a, box(0.13, 0.32, 0.14), mat(shirt), 0, -0.16, 0);
-      add(a, box(0.12, 0.3, 0.13), mat(zombie ? skin : shirt), 0, -0.45, 0);
-      add(a, box(0.1, 0.1, 0.11), mat(zombie ? skin : 0x1d1f1e), 0, -0.63, 0);
-      if (!zombie) add(a, box(0.14, 0.06, 0.15), mat(look.accent, { emissive: look.accent, ei: 0.25 }), 0, -0.1, 0);
-      torso.add(a);
-      return a;
-    };
-    const armL = mkArm(-0.3), armR = mkArm(0.3);
-    let gun = null;
-    if (o.weapon) {
-      gun = G.buildGun(o.weapon, { shadow: G.settings.quality === 'yuksek' });
-      gun.scale.setScalar(1.15);
-      gun.position.set(0.1, 0.36, -0.3);
-      torso.add(gun);
-    }
-    // yaka fotoğrafı (sadece oyuncunun kendi modeli)
+    // yaka fotoğrafı
     if (o.photoTex) {
       const frame = add(torso, box(0.13, 0.15, 0.012), mat(0xc9a14a, { emissive: 0x2a1a00 }), 0.12, 0.47, -0.162);
       frame.castShadow = false;
       const ph = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.13), new THREE.MeshBasicMaterial({ map: o.photoTex }));
+      ph.name = 'photo';
       ph.position.set(0.12, 0.47, -0.17);
       ph.rotation.y = Math.PI;
       torso.add(ph);
+    }
+    // baş
+    const head = new THREE.Group();
+    head.name = 'head';
+    head.position.y = 0.58;
+    torso.add(head);
+    add(head, box(0.12, 0.08, 0.12), skinM, 0, 0.0, 0);
+    add(head, box(0.22, 0.25, 0.23), skinM, 0, 0.15, 0);
+    const headType = zombie ? (zv === 'asker' ? 'helmet' : zv === 'hazmat' ? 'hazmat' : 'none') : op ? op.head : U.pick(G.ENEMY_LOOKS);
+    const face = zombie ? (zv === 'hazmat' ? 'gasmask' : 'none') : op ? op.face : headType === 'gasmask' ? 'gasmask' : Math.random() < 0.4 ? 'balaclava' : 'none';
+    if (face === 'balaclava') {
+      add(head, box(0.235, 0.265, 0.245), mat(team === 1 ? 0x141416 : 0x2a3024), 0, 0.15, 0);
+      add(head, box(0.17, 0.045, 0.012), skinM, 0, 0.17, -0.122);
+    }
+    const eyeM = zombie ? new THREE.MeshBasicMaterial({ color: o.eyeColor || 0xffa020 }) : mat(0x1a1410);
+    add(head, box(0.04, 0.022, 0.012), eyeM, -0.05, 0.17, -0.12);
+    add(head, box(0.04, 0.022, 0.012), eyeM, 0.05, 0.17, -0.12);
+    if (zombie) {
+      add(head, box(0.12, 0.05, 0.03), mat(0x3a0a0a), 0, 0.05, -0.11);
+      if (headType === 'none') add(head, box(0.2, 0.05, 0.2), mat(0x2a2a20), 0.02, 0.28, 0.02);
+    } else if (face !== 'balaclava') {
+      add(head, box(0.04, 0.05, 0.03), mat(skin - 0x101010 > 0 ? skin - 0x101010 : skin), 0, 0.13, -0.125);
+    }
+    if (op && op.beard) add(head, box(0.21, 0.1, 0.07), mat(op.beard), 0, 0.06, -0.09);
+    if (op && op.mustache) add(head, box(0.11, 0.025, 0.02), mat(op.mustache), 0, 0.095, -0.12);
+    if (op && op.female) {
+      add(head, box(0.235, 0.06, 0.245), mat(op.hair), 0, 0.27, 0.0);
+      add(head, box(0.08, 0.18, 0.07), mat(op.hair), 0, 0.12, 0.15);
+    }
+    if (face === 'goggles') {
+      add(head, box(0.24, 0.03, 0.245), dark, 0, 0.2, 0);
+      for (const x of [-0.05, 0.05]) add(head, box(0.08, 0.045, 0.02), mat(0x3a5a6a, { emissive: 0x0a1a20 }), x, 0.185, -0.127);
+    }
+    if (face === 'gasmask') {
+      add(head, box(0.2, 0.15, 0.06), dark, 0, 0.12, -0.12);
+      for (const x of [-0.075, 0.075]) add(head, new THREE.CylinderGeometry(0.035, 0.035, 0.05, 8).rotateX(Math.PI / 2), mat(0x2a2a2a), x, 0.07, -0.16);
+      for (const x of [-0.05, 0.05]) add(head, box(0.05, 0.04, 0.012), new THREE.MeshBasicMaterial({ color: team === 1 ? 0xff3a20 : 0x60a0a0 }), x, 0.18, -0.152);
+    }
+    const helmetM = mat(op && op.snow ? 0xe0e4e8 : zombie ? 0x4a5236 : TL.helmet);
+    if (headType === 'helmet' || headType === 'nvg') {
+      add(head, box(0.27, 0.12, 0.29), helmetM, 0, 0.3, 0.01);
+      add(head, box(0.29, 0.03, 0.31), helmetM, 0, 0.245, 0.01);
+      add(head, box(0.06, 0.04, 0.03), dark, 0, 0.31, -0.15);
+      add(head, box(0.03, 0.03, 0.03), new THREE.MeshBasicMaterial({ color: TL.accent }), 0, 0.37, 0.12);
+      add(head, box(0.04, 0.08, 0.09), dark, 0.14, 0.19, 0);
+      if (headType === 'nvg') {
+        for (const x of [-0.035, 0.035]) add(head, new THREE.CylinderGeometry(0.022, 0.022, 0.07, 8).rotateX(Math.PI / 2), dark, x, 0.2, -0.16);
+        for (const x of [-0.035, 0.035]) add(head, box(0.03, 0.03, 0.005), new THREE.MeshBasicMaterial({ color: 0x40ff60 }), x, 0.2, -0.197);
+      }
+    } else if (headType === 'cap') {
+      const capM = mat(team === 1 ? 0x1a1a1e : 0x5a5a3a);
+      add(head, box(0.24, 0.07, 0.25), capM, 0, 0.29, 0);
+      add(head, box(0.2, 0.015, 0.1), capM, 0, 0.255, -0.16);
+      for (const x of [-0.13, 0.13]) add(head, box(0.04, 0.08, 0.08), dark, x, 0.17, 0);
+    } else if (headType === 'beanie') {
+      add(head, box(0.245, 0.1, 0.25), mat(0x6a2a2a), 0, 0.3, 0);
+      add(head, box(0.25, 0.035, 0.255), mat(0x5a2222), 0, 0.255, 0);
+    } else if (headType === 'beret') {
+      const b = add(head, box(0.26, 0.05, 0.27), mat(0x6a1a2a), 0.02, 0.3, 0);
+      b.rotation.z = 0.15;
+      add(head, box(0.03, 0.03, 0.01), mat(0xd4a52a, { emissive: 0x2a1a00 }), -0.08, 0.3, -0.136);
+    } else if (headType === 'gasmask' && !zombie) {
+      add(head, box(0.245, 0.08, 0.25), mat(0x1a1a1e), 0, 0.3, 0);
+    } else if (headType === 'hazmat') {
+      add(head, box(0.27, 0.32, 0.28), mat(0xc8b020), 0, 0.17, 0.01);
+      add(head, box(0.18, 0.1, 0.02), mat(0x3a4a4a, { emissive: 0x0a1a1a }), 0, 0.18, -0.13);
+    }
+    // kollar
+    const arms = [];
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Group();
+      arm.name = side < 0 ? 'armL' : 'armR';
+      arm.position.set(side * 0.29, 0.52, 0);
+      add(arm, box(0.13, 0.3, 0.14), uni, 0, -0.15, 0);
+      if (!zombie) {
+        const patch = add(arm, box(0.135, 0.07, 0.1), mat(TL.accent, { emissive: TL.accent, ei: 0.25 }), 0, -0.07, 0);
+        patch.castShadow = false;
+      }
+      const elbow = new THREE.Group();
+      elbow.name = 'elbow';
+      elbow.position.y = -0.3;
+      add(elbow, box(0.12, 0.27, 0.13), zombie && zv !== 'hazmat' && zv !== 'bilim' ? skinM : uni, 0, -0.135, 0);
+      add(elbow, box(0.11, 0.1, 0.12), glove, 0, -0.3, 0);
+      arm.add(elbow);
+      torso.add(arm);
+      arms.push({ arm, elbow, side, S: new THREE.Vector3(side * 0.29, 0.52, 0) });
+      if (zombie && side < 0 && Math.random() < 0.15) elbow.visible = false;
+    }
+    // silah
+    let gun = null;
+    if (o.weapon) {
+      gun = G.buildGun(o.weapon, { merge: true, shadow: G.settings.quality === 'yuksek' });
+      gun.name = 'gun';
+      gun.position.set(0.1, 0.38, -0.24);
+      torso.add(gun);
     }
     if (o.tag) {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: o.tag, depthTest: false, transparent: true }));
       sp.scale.set(o.tagW || 0.35, o.tagH || 0.35, 1);
       sp.position.y = 2.15;
       sp.renderOrder = 10;
+      sp.name = 'tag';
       root.add(sp);
       root.userData.tag = sp;
     }
+    // çizim çağrılarını azalt: her kemik grubunu malzemeye göre birleştir
+    G.mergeGroup(torso, ['head', 'armL', 'armR', 'gun', 'tag', 'photo']);
+    G.mergeGroup(head, []);
+    for (const l of legs) {
+      G.mergeGroup(l.leg, ['knee']);
+      G.mergeGroup(l.knee, []);
+    }
+    for (const a of arms) {
+      G.mergeGroup(a.arm, ['elbow']);
+      G.mergeGroup(a.elbow, []);
+    }
+    if (G.settings.quality === 'yuksek') root.traverse((m) => { if (m.isMesh && !m.material.isMeshBasicMaterial) m.castShadow = true; });
+
+    const tmpT = new THREE.Vector3();
     return {
-      root, hips, torso, head, legL, legR, armL, armR, gun, zombie,
+      root, hips, torso, head, legs, arms, gun, zombie,
+      legL: legs[0].leg, legR: legs[1].leg, armL: arms[0].arm, armR: arms[1].arm,
       phase: Math.random() * 6,
       deathT: 0,
       deathDir: 1,
+      deathType: Math.floor(Math.random() * 3),
+      kick: 0,
+      popHead() {
+        if (!this.head.visible) return;
+        this.head.visible = false;
+        const p = this.head.getWorldPosition(new THREE.Vector3());
+        p.y += 0.15;
+        G.fx.blood(p.x, p.y, p.z, 0, 1, 0, 3.5, [0.35, 0.08, 0.05]);
+      },
       animate(dt, st) {
-        // st: {speed, crouch, pitch, dead, attack, rise}
+        const L0 = this.legs[0], L1 = this.legs[1];
         if (st.dead) {
           this.deathT += dt;
-          const k = U.clamp(this.deathT / 0.45, 0, 1);
+          const k = U.clamp(this.deathT / 0.5, 0, 1);
           const e = 1 - Math.pow(1 - k, 3);
-          this.hips.rotation.x = this.deathDir * e * 1.45;
-          this.hips.position.y = 0.92 - e * 0.68;
-          this.armL.rotation.x = -e * 2.4;
-          this.armR.rotation.x = -e * 2.2;
-          this.legL.rotation.x = e * 0.25;
-          this.legR.rotation.x = -e * 0.15;
+          if (this.deathType === 2) {
+            const k1 = U.clamp(this.deathT / 0.25, 0, 1);
+            this.hips.position.y = 0.95 - k1 * 0.45 - e * 0.25;
+            L0.leg.rotation.x = L1.leg.rotation.x = k1 * 1.2;
+            L0.knee.rotation.x = L1.knee.rotation.x = -k1 * 2.0;
+            this.root.rotation.z = U.clamp((this.deathT - 0.2) / 0.4, 0, 1) * 1.4 * this.deathDir;
+          } else {
+            const dir = this.deathType === 0 ? 1 : -1;
+            this.root.rotation.x = dir * e * 1.45;
+            this.hips.position.y = 0.95 - e * 0.15;
+            L0.knee.rotation.x = -e * 0.4;
+          }
+          for (const a of this.arms) {
+            a.arm.quaternion.identity();
+            a.arm.rotation.x = -e * 2.2;
+            a.arm.rotation.z = a.side * e * 0.4;
+            a.elbow.quaternion.identity();
+          }
+          if (this.gun) this.gun.rotation.z = e * 1.2;
           if (this.deathT > 3.2) this.root.position.y = -(this.deathT - 3.2) * 0.5;
           return;
         }
+        this.root.rotation.x = 0;
+        this.root.rotation.z = 0;
         const sp = st.speed || 0;
-        this.phase += dt * (2.5 + sp * 1.6);
-        const amp = Math.min(1, sp / 4.5) * (this.zombie ? 0.55 : 0.7);
-        const s = Math.sin(this.phase) * amp;
+        this.phase += dt * (2.6 + sp * 1.55);
+        const amp = Math.min(1, sp / 4.5) * (this.zombie ? 0.55 : 0.75);
+        const s = Math.sin(this.phase);
         const c = st.crouch || 0;
-        this.hips.position.y = 0.92 - c * 0.42 - Math.abs(Math.cos(this.phase)) * amp * 0.05;
-        this.legL.rotation.x = s - c * 1.1;
-        this.legR.rotation.x = -s - c * 0.6;
-        this.torso.rotation.x = c * 0.25 + (this.zombie ? 0.35 : 0);
-        this.head.rotation.x = -(st.pitch || 0) * 0.5 - (this.zombie ? 0.25 : 0);
+        this.hips.position.y = 0.95 - c * 0.36 - Math.abs(Math.cos(this.phase)) * amp * 0.05;
+        L0.leg.rotation.x = s * amp * 0.85 + c * 1.15;
+        L1.leg.rotation.x = -s * amp * 0.85 + c * 0.75;
+        L0.knee.rotation.x = -Math.max(0, -Math.cos(this.phase)) * amp * 1.3 - c * 1.85;
+        L1.knee.rotation.x = -Math.max(0, Math.cos(this.phase)) * amp * 1.3 - c * 1.4;
+        const run = sp > 5.5;
+        this.kick = U.damp(this.kick, 0, 14, dt);
+        this.torso.rotation.x = c * 0.2 + (run ? 0.18 : 0) + (this.zombie ? 0.35 : 0) - this.kick * 0.15;
+        this.torso.rotation.y = this.zombie ? Math.sin(this.phase * 0.5) * 0.12 : 0;
+        const pitch = st.pitch || 0;
+        this.head.rotation.x = -pitch * 0.5 - (this.zombie ? 0.25 : 0);
         if (this.zombie) {
           const atk = st.attack || 0;
-          this.armL.rotation.x = -1.35 + Math.sin(this.phase * 0.5) * 0.15 - atk * 0.8;
-          this.armR.rotation.x = -1.45 - Math.sin(this.phase * 0.5) * 0.15 - atk * 1.2;
-          this.armR.rotation.z = atk * 0.6;
-          this.torso.rotation.y = Math.sin(this.phase * 0.5) * 0.12;
-          if (st.rise != null) {
-            this.root.position.y = (st.rise - 1) * 1.7;
+          for (const a of this.arms) {
+            const reach = tmpT.set(a.side * 0.18 + Math.sin(this.phase * 0.5 + a.side) * 0.05, 0.42 - atk * 0.25 + a.side * 0.03, -0.55 - atk * 0.1);
+            solveArm(a.arm, a.elbow, a.S, reach, a.side, 0.3, 0.3);
+          }
+          if (st.rise != null) this.root.position.y = (st.rise - 1) * 1.7;
+          return;
+        }
+        // silah tutuşu
+        const g = this.gun;
+        if (g) {
+          const reloading = !!st.reload;
+          g.position.set(0.1, run ? 0.28 : 0.38, run ? -0.18 : -0.24);
+          g.rotation.set(run ? 0.7 : -pitch * 0.9 + this.kick * 0.3, run ? 0.5 : 0, reloading ? 0.5 : 0);
+          this.torso.updateMatrixWorld(true);
+          const P = g.userData.parts;
+          for (const a of this.arms) {
+            let anchor = a.side > 0 ? P.rightHand : P.leftHand;
+            if (reloading && a.side < 0 && P.mag) anchor = P.mag;
+            anchor.getWorldPosition(tmpT);
+            this.torso.worldToLocal(tmpT);
+            if (reloading && a.side < 0) tmpT.y -= 0.06 + Math.sin(G.time * 8) * 0.03;
+            solveArm(a.arm, a.elbow, a.S, tmpT, a.side, 0.3, 0.3);
           }
         } else {
-          const p = st.pitch || 0;
-          this.armR.rotation.set(-1.25 - p, -0.15, 0);
-          this.armL.rotation.set(-1.35 - p, 0.55, 0);
-          if (this.gun) this.gun.rotation.x = -p * 0.9;
-          if (sp > 5.5) {
-            // koşu: silah aşağı
-            this.armR.rotation.x = -0.6 + s * 0.3;
-            this.armL.rotation.x = -0.9 - s * 0.3;
-            if (this.gun) this.gun.rotation.x = 0.6;
+          for (const a of this.arms) {
+            a.arm.quaternion.identity();
+            a.arm.rotation.x = -s * amp * 0.6 * a.side;
+            a.elbow.quaternion.identity();
+            a.elbow.rotation.x = -0.3;
           }
         }
       },

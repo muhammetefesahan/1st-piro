@@ -121,7 +121,7 @@
       } catch (e) {
         stats = G.computeStats('simsek', {});
       }
-      this.model = G.makeHumanoid({ kind: 'soldier', look, weapon: stats, tag, tagW: 1.6, tagH: 0.3 });
+      this.model = G.makeHumanoid({ kind: 'soldier', look, weapon: stats, tag, tagW: 1.6, tagH: 0.3, operator: look === 0 && G.OPERATORS[pres.op] ? pres.op : null });
       this.scene.add(this.model.root);
     }
     applyPresence(pres, dt) {
@@ -310,6 +310,7 @@
           hp: Math.round(p.health),
           a: p.alive ? 1 : 0,
           w: p.weapon ? p.weapon.id : 'simsek',
+          op: G.settings.operator || 'kurt',
           fs: this.fs,
           k: p.kills,
           d: p.deaths,

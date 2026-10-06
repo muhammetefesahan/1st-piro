@@ -86,13 +86,21 @@
     announcer: true,
     callsign: 'Gölge-1',
     touchSens: 1.0,
-    pixel: 3,
+    pixel: 2,
     outline: true,
-    levels: 24,
+    levels: 32,
+    bloom: true,
     photo: false,
     photoCaption: '',
+    operator: 'kurt',
   };
   G.settings = Object.assign({}, SETTINGS_DEFAULT, G.store.get('settings', {}));
+  if (G.settings.v !== 2) {
+    // sürüm 2: daha keskin piksel varsayılanları
+    G.settings.pixel = 2;
+    G.settings.levels = 32;
+    G.settings.v = 2;
+  }
   G.saveSettings = () => G.store.set('settings', G.settings);
   G.SETTINGS_DEFAULT = SETTINGS_DEFAULT;
 
@@ -131,7 +139,40 @@
     ads: ['mouse2'],
     loadout: ['KeyL'],
     cay: ['KeyT'],
+    inspect: ['KeyI'],
     simit: ['KeyH'],
+  };
+  const BINDS_DEFAULT = JSON.parse(JSON.stringify(BINDS));
+  // Oyuncunun değiştirdiği tuşlar (yalnızca klavye eylemleri)
+  if (G.settings.binds && typeof G.settings.binds === 'object') {
+    for (const a in G.settings.binds) {
+      const v = G.settings.binds[a];
+      if (BINDS[a] && Array.isArray(v) && v.length && v.every((c) => typeof c === 'string')) BINDS[a] = v.slice(0, 2);
+    }
+  }
+  // Bir eylemi yeni tuşa bağlar; aynı tuş başka eylemdeyse oradan alır ve o eylemin adını döndürür
+  G.setBind = function (action, code) {
+    if (!BINDS[action]) return null;
+    let taken = null;
+    for (const a in BINDS) {
+      if (a === action) continue;
+      const i = BINDS[a].indexOf(code);
+      if (i >= 0) {
+        BINDS[a] = BINDS[a].filter((c) => c !== code);
+        taken = a;
+      }
+    }
+    BINDS[action] = [code];
+    const saved = {};
+    for (const a in BINDS) if (JSON.stringify(BINDS[a]) !== JSON.stringify(BINDS_DEFAULT[a])) saved[a] = BINDS[a];
+    G.settings.binds = saved;
+    G.saveSettings();
+    return taken && !BINDS[taken].length ? taken : null;
+  };
+  G.resetBinds = function () {
+    for (const a in BINDS_DEFAULT) BINDS[a] = BINDS_DEFAULT[a].slice();
+    G.settings.binds = {};
+    G.saveSettings();
   };
 
   const Input = (G.input = {
