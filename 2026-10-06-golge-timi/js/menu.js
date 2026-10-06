@@ -36,7 +36,14 @@
     const nav = $('navbar');
     nav.hidden = !TABBED.has(id) || inMatch;
     for (const t of nav.querySelectorAll('.nav-tab')) t.classList.toggle('on', t.dataset.go === id);
-    if (!nav.hidden) renderNav();
+    if (!nav.hidden) {
+      renderNav();
+      // dar ekranda kayan sekme şeridinde seçili sekmeyi görünür tut
+      const strip = nav.querySelector('.nav-tabs'), on = nav.querySelector('.nav-tab.on');
+      if (strip && on && strip.scrollWidth > strip.clientWidth) {
+        strip.scrollLeft = Math.max(0, on.offsetLeft - strip.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2);
+      }
+    }
     const r = {
       's-main': renderMain,
       's-mp': renderMP,
@@ -85,7 +92,7 @@
   G.on('mapshot', () => applyShots(document));
 
   // ------------------------------------------------------------------
-  // RÜTBE ROZETİ (piksel nişan)
+  // RÜTBE ROZETİ (şeker renkli madalya / kalkan, yıldız ve kurdele)
   // ------------------------------------------------------------------
   const badgeCache = {};
   G.rankIndex = function (level) {
@@ -95,90 +102,244 @@
     });
     return ri;
   };
+  const INK = '#3b2a4a';
+  // yıldız yolu (yuvarlak köşeli çizilir)
+  function starPath(x, cx, cy, R, r, rot) {
+    x.beginPath();
+    for (let k = 0; k < 10; k++) {
+      const a = (rot || -Math.PI / 2) + (k * Math.PI) / 5;
+      const rad = k % 2 ? r : R;
+      const px = cx + Math.cos(a) * rad, py = cy + Math.sin(a) * rad;
+      if (k) x.lineTo(px, py);
+      else x.moveTo(px, py);
+    }
+    x.closePath();
+  }
+  function heartPath(x, cx, cy, s) {
+    x.beginPath();
+    x.moveTo(cx, cy + s * 0.9);
+    x.bezierCurveTo(cx - s * 1.5, cy - s * 0.1, cx - s * 0.75, cy - s * 1.15, cx, cy - s * 0.45);
+    x.bezierCurveTo(cx + s * 0.75, cy - s * 1.15, cx + s * 1.5, cy - s * 0.1, cx, cy + s * 0.9);
+    x.closePath();
+  }
+  function shieldPath(x, cx, top, w, h) {
+    const l = cx - w / 2, r = cx + w / 2, b = top + h, rad = 12;
+    x.beginPath();
+    x.moveTo(l + rad, top);
+    x.lineTo(r - rad, top);
+    x.quadraticCurveTo(r, top, r, top + rad);
+    x.lineTo(r, top + h * 0.48);
+    x.quadraticCurveTo(r, top + h * 0.84, cx, b);
+    x.quadraticCurveTo(l, top + h * 0.84, l, top + h * 0.48);
+    x.lineTo(l, top + rad);
+    x.quadraticCurveTo(l, top, l + rad, top);
+    x.closePath();
+  }
+  // dolgu + mürekkep kontur
+  function ink(x, fill, lw) {
+    x.fillStyle = fill;
+    x.fill();
+    x.lineWidth = lw || 5;
+    x.strokeStyle = INK;
+    x.stroke();
+  }
+  function shine(x, cx, cy, rx, ry) {
+    x.save();
+    x.globalAlpha = 0.5;
+    x.fillStyle = '#fff';
+    x.beginPath();
+    x.ellipse(cx, cy, rx, ry, -0.5, 0, Math.PI * 2);
+    x.fill();
+    x.restore();
+  }
+  function chevron(x, cx, y) {
+    for (const [w, c] of [[13, INK], [6.5, '#fff']]) {
+      x.beginPath();
+      x.moveTo(cx - 15, y + 8);
+      x.lineTo(cx, y - 3);
+      x.lineTo(cx + 15, y + 8);
+      x.lineWidth = w;
+      x.strokeStyle = c;
+      x.stroke();
+    }
+  }
+  // kurdele uçları (kalkanın altında); cols bir dizi ya da 'rainbow'
+  const RAINBOW = ['#ff6b6b', '#ffb347', '#ffd23f', '#3ddc97', '#4cc3ff', '#9b5de5'];
+  function tails(x, cx, y, col) {
+    for (const dir of [-1, 1]) {
+      const path = () => {
+        x.beginPath();
+        x.moveTo(cx + dir * 4, y - 16);
+        x.lineTo(cx + dir * 22, y - 6);
+        x.lineTo(cx + dir * 25, y + 12);
+        x.lineTo(cx + dir * 16, y + 7);
+        x.lineTo(cx + dir * 9, y + 14);
+        x.closePath();
+      };
+      if (col === 'rainbow') {
+        x.save();
+        path();
+        x.clip();
+        RAINBOW.forEach((c, i) => {
+          x.fillStyle = c;
+          x.fillRect(cx - 30, y - 18 + i * 5.5, 60, 5.6);
+        });
+        x.restore();
+        path();
+        x.lineWidth = 4;
+        x.strokeStyle = INK;
+        x.stroke();
+      } else {
+        path();
+        ink(x, col, 4);
+      }
+    }
+  }
+  function goldStar(x, cx, cy, R) {
+    starPath(x, cx, cy, R, R * 0.48);
+    ink(x, '#ffd23f', 4);
+    shine(x, cx - R * 0.22, cy - R * 0.25, R * 0.22, R * 0.12);
+  }
+  function sparkle(x, cx, cy, s, col) {
+    x.beginPath();
+    x.moveTo(cx, cy - s);
+    x.quadraticCurveTo(cx, cy, cx + s, cy);
+    x.quadraticCurveTo(cx, cy, cx, cy + s);
+    x.quadraticCurveTo(cx, cy, cx - s, cy);
+    x.quadraticCurveTo(cx, cy, cx, cy - s);
+    x.fillStyle = col;
+    x.fill();
+  }
   G.rankBadge = function (level) {
     const ri = G.rankIndex(level);
     if (badgeCache[ri]) return badgeCache[ri];
-    const N = 20, S = 3;
+    const D = 96;
     const c = document.createElement('canvas');
-    c.width = c.height = N * S;
+    c.width = c.height = D;
     const x = c.getContext('2d');
-    const px = (i, j, col) => {
-      x.fillStyle = col;
-      x.fillRect(i * S, j * S, S, S);
-    };
-    const tier = ri >= 12 ? 3 : ri >= 9 ? 2 : ri >= 5 ? 1 : 0;
-    const metal = ['#d19352', '#dfe7ea', '#ffcc4d', '#ffd864'][tier];
-    const shade = ['#7a4e26', '#7c878c', '#a3721a', '#9c6c12'][tier];
-    const bg = tier === 3 ? '#5c1210' : tier === 2 ? '#1d1a12' : '#152020';
-    const inside = (i, j) => {
-      if (j < 1 || j > 18) return false;
-      const k = j > 11 ? j - 11 : 0;
-      return i >= 2 + k && i <= 17 - k;
-    };
-    for (let j = 0; j < N; j++)
-      for (let i = 0; i < N; i++) {
-        if (!inside(i, j)) continue;
-        const edge = !inside(i - 1, j) || !inside(i + 1, j) || !inside(i, j - 1) || !inside(i, j + 1);
-        px(i, j, edge ? metal : j < 4 ? '#ffffff12' : bg);
-        if (!edge && j >= 4) px(i, j, bg);
+    x.lineJoin = 'round';
+    x.lineCap = 'round';
+    const cx = D / 2;
+    if (ri <= 4) {
+      // Erbaşlar: çizgili kurdeleli yuvarlak madalya
+      const ribbon = () => {
+        x.beginPath();
+        x.moveTo(30, 4);
+        x.lineTo(66, 4);
+        x.lineTo(59, 44);
+        x.lineTo(37, 44);
+        x.closePath();
+      };
+      x.save();
+      ribbon();
+      x.clip();
+      ['#ff6fa8', '#fff', '#ff6fa8', '#fff', '#ff6fa8'].forEach((col, i) => {
+        x.fillStyle = col;
+        x.fillRect(30 + i * 7.2, 0, 7.4, 48);
+      });
+      x.restore();
+      ribbon();
+      x.lineWidth = 4;
+      x.strokeStyle = INK;
+      x.stroke();
+      const col = ['#7ed957', '#4cc3ff', '#c9b2ff', '#3ddc97', '#ffb347'][ri];
+      x.beginPath();
+      x.arc(cx, 60, 31, 0, Math.PI * 2);
+      ink(x, col, 5);
+      x.beginPath();
+      x.arc(cx, 60, 24, 0, Math.PI * 2);
+      x.lineWidth = 3;
+      x.strokeStyle = 'rgba(255,255,255,0.6)';
+      x.stroke();
+      shine(x, cx - 13, 46, 8, 4.5);
+      if (ri === 0) {
+        heartPath(x, cx, 61, 12);
+        ink(x, '#ff6fa8', 4);
+        shine(x, cx - 6, 56, 3.5, 2);
+      } else if (ri <= 3) {
+        const top = 60 - (ri - 1) * 5.5;
+        for (let k = 0; k < ri; k++) chevron(x, cx, top + k * 10 - 2);
+      } else {
+        goldStar(x, cx, 50, 9);
+        chevron(x, cx, 63);
+        chevron(x, cx, 73);
       }
-    const sym = (cells) => {
-      for (const [i, j] of cells) px(i + 1, j + 1, shade);
-      for (const [i, j] of cells) px(i, j, metal);
-    };
-    const chevron = (y0) => {
-      const cells = [];
-      for (let i = 5; i <= 14; i++) {
-        const d = Math.min(i - 5, 14 - i);
-        const y = y0 + Math.floor(d / 1.5);
-        cells.push([i, y], [i, y + 1]);
-      }
-      return cells;
-    };
-    const STAR = ['..#..', '.###.', '#####', '.###.', '.#.#.'];
-    const star = (sx, sy) => {
-      const cells = [];
-      STAR.forEach((row, j) => row.split('').forEach((ch, i) => ch === '#' && cells.push([sx + i, sy + j])));
-      return cells;
-    };
-    const wreath = () => {
-      const cells = [];
-      for (let i = 5; i <= 14; i++) if (i % 2 === 1) cells.push([i, 15]);
-      for (let i = 6; i <= 13; i++) if (i % 2 === 0) cells.push([i, 14]);
-      cells.push([9, 16], [10, 16]);
-      return cells;
-    };
-    let cells = [];
-    if (ri === 0) for (let i = 6; i <= 13; i++) cells.push([i, 9], [i, 10]);
-    else if (ri <= 4) {
-      const n = Math.min(3, ri);
-      const top = ri === 4 ? 6 : 9 - n * 2;
-      for (let k = 0; k < n; k++) cells = cells.concat(chevron(top + k * 3));
-      if (ri === 4) for (let i = 7; i <= 12; i++) cells.push([i, 3]);
-    } else if (ri <= 8) {
-      const n = ri - 5;
-      if (ri === 5) {
-        cells = star(7, 7).filter(([i, j]) => !(i === 9 && j === 9));
-      } else if (n === 1) cells = star(7, 7);
-      else if (n === 2) cells = star(4, 7).concat(star(11, 7));
-      else cells = star(7, 3).concat(star(4, 9), star(11, 9));
     } else if (ri <= 11) {
-      const n = ri - 8;
-      if (n === 1) cells = star(7, 5);
-      else if (n === 2) cells = star(4, 6).concat(star(11, 6));
-      else cells = star(7, 2).concat(star(4, 7), star(11, 7));
-      cells = cells.concat(wreath());
-    } else {
-      // Efsane: hilal ve yıldız
-      for (let j = 3; j < 16; j++)
-        for (let i = 3; i < 16; i++) {
-          const a = Math.hypot(i - 8, j - 9) <= 5.2;
-          const b = Math.hypot(i - 9.6, j - 9) <= 4.2;
-          if (a && !b) cells.push([i, j]);
+      // Subaylar: yuvarlak kalkan + yıldızlar; üst subaylarda defne çelengi
+      const senior = ri >= 9;
+      tails(x, cx, 84, senior ? '#ffd23f' : '#4cc3ff');
+      shieldPath(x, cx, 8, 66, 78);
+      ink(x, senior ? '#b48cf0' : '#ff8fbf', 5);
+      shieldPath(x, cx, 15, 52, 62);
+      x.lineWidth = 3;
+      x.strokeStyle = 'rgba(255,255,255,0.55)';
+      x.stroke();
+      shine(x, cx - 17, 22, 9, 5);
+      if (senior) {
+        // defne yaprakları
+        for (const dir of [-1, 1]) {
+          for (let k = 0; k < 4; k++) {
+            const a = Math.PI * (0.62 + k * 0.17);
+            const px = cx - dir * Math.cos(a) * 20, py = 50 + Math.sin(a) * 20;
+            x.beginPath();
+            x.ellipse(px, py, 6, 3.4, dir * (a + 0.4), 0, Math.PI * 2);
+            ink(x, '#3ddc97', 2.5);
+          }
         }
-      cells.push([13, 8], [12, 9], [13, 9], [14, 9], [13, 10]);
+      }
+      const n = senior ? ri - 8 : ri - 5;
+      const sy = senior ? 40 : 44;
+      if (n === 0) {
+        // Asteğmen: içi boş yıldız
+        starPath(x, cx, 46, 15, 7);
+        x.lineWidth = 9;
+        x.strokeStyle = INK;
+        x.stroke();
+        x.lineWidth = 4;
+        x.strokeStyle = '#ffd23f';
+        x.stroke();
+      } else if (n === 1) goldStar(x, cx, sy + 2, 15);
+      else if (n === 2) {
+        goldStar(x, cx - 12, sy + 2, 11);
+        goldStar(x, cx + 12, sy + 2, 11);
+      } else {
+        goldStar(x, cx, sy - 8, 10);
+        goldStar(x, cx - 13, sy + 9, 10);
+        goldStar(x, cx + 13, sy + 9, 10);
+      }
+    } else {
+      // Efsane: altın kalkan, gökkuşağı kurdele, taç ve kalp
+      tails(x, cx, 84, 'rainbow');
+      shieldPath(x, cx, 20, 66, 68);
+      ink(x, '#ffd23f', 5);
+      shieldPath(x, cx, 27, 52, 53);
+      x.lineWidth = 3;
+      x.strokeStyle = 'rgba(255,255,255,0.7)';
+      x.stroke();
+      shine(x, cx - 17, 33, 9, 5);
+      x.beginPath();
+      x.moveTo(cx - 20, 24);
+      x.lineTo(cx - 23, 6);
+      x.lineTo(cx - 10, 15);
+      x.lineTo(cx, 2);
+      x.lineTo(cx + 10, 15);
+      x.lineTo(cx + 23, 6);
+      x.lineTo(cx + 20, 24);
+      x.closePath();
+      ink(x, '#ff6fa8', 4);
+      for (const gx of [-12, 0, 12]) {
+        x.beginPath();
+        x.arc(cx + gx, 19, 2.6, 0, Math.PI * 2);
+        x.fillStyle = '#fff';
+        x.fill();
+      }
+      heartPath(x, cx, 54, 15);
+      ink(x, '#ff6fa8', 4);
+      shine(x, cx - 7, 48, 4.5, 2.5);
+      sparkle(x, 14, 30, 7, '#4cc3ff');
+      sparkle(x, 84, 36, 6, '#ff6fa8');
+      sparkle(x, 80, 12, 5, '#3ddc97');
     }
-    sym(cells);
     return (badgeCache[ri] = c.toDataURL('image/png'));
   };
 
@@ -201,7 +362,7 @@
     $('boot-start').addEventListener('click', () => {
       G.audio.init();
       G.audio.music('menu');
-      if (G.isTouch) {
+      if (G.isMobile) {
         try {
           const el = document.documentElement;
           if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
@@ -512,21 +673,22 @@
     if (PV.r !== undefined) return PV.r;
     try {
       const cv = document.createElement('canvas');
-      const r = new THREE.WebGLRenderer({ canvas: cv, antialias: false, alpha: true });
-      r.setPixelRatio(1);
+      const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+      // tatlı stüdyo: yumuşak pastel ışık, pembe sekme, gök mavisi kenar ışığı
+      r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
       r.toneMapping = THREE.ACESFilmicToneMapping;
-      r.toneMappingExposure = 1.3;
+      r.toneMappingExposure = 1.15;
       const sc = new THREE.Scene();
       PV.env = G.studioEnv ? G.studioEnv(r) : null;
-      const hemi = new THREE.HemisphereLight(0xe4ecff, 0x2c2620, 1.1);
+      const hemi = new THREE.HemisphereLight(0xfff8ff, 0xffc2dc, 1.15);
       sc.add(hemi);
-      const key = new THREE.DirectionalLight(0xfff0dc, 1.6);
+      const key = new THREE.DirectionalLight(0xfff4e6, 1.5);
       key.position.set(-2, 3, 2.5);
       sc.add(key);
-      const rim = new THREE.DirectionalLight(0x7be0c3, 0.9);
+      const rim = new THREE.DirectionalLight(0x9ad7ff, 0.35);
       rim.position.set(2.5, 1.2, -2.5);
       sc.add(rim);
-      const fill = new THREE.DirectionalLight(0xffb238, 0.35);
+      const fill = new THREE.DirectionalLight(0xffaad0, 0.15);
       fill.position.set(2, -1, 2);
       sc.add(fill);
       const cam = new THREE.PerspectiveCamera(26, 16 / 7, 0.05, 50);
@@ -558,7 +720,7 @@
       cv.addEventListener('pointerup', end);
       cv.addEventListener('pointercancel', end);
       cv.addEventListener('dblclick', () => {
-        PV.baseYaw = PV.yaw = PV.kind === 'gun' ? -Math.PI / 2 + 0.3 : 0;
+        PV.baseYaw = PV.yaw = PV.kind === 'gun' ? -Math.PI / 2 + 0.3 : Math.PI;
         PV.pitch = 0;
       });
     } catch (e) {
@@ -569,9 +731,9 @@
   function pvLight(kind) {
     const gun = kind === 'gun';
     PV.sc.environment = gun ? PV.env || null : null;
-    PV.r.toneMappingExposure = gun ? 1.3 : 1.0;
-    PV.hemi.intensity = gun ? 1.1 : 0.8;
-    PV.keyLight.intensity = gun ? 1.6 : 1.1;
+    PV.r.toneMappingExposure = 1.0;
+    PV.hemi.intensity = gun ? 0.75 : 0.6;
+    PV.keyLight.intensity = gun ? 0.95 : 0.8;
   }
   function pvClear() {
     for (const ch of PV.holder.children.slice()) {
@@ -645,7 +807,7 @@
     PV.humanoid = h;
     PV.kind = 'op';
     PV.key = key;
-    PV.yaw = -0.35;
+    PV.yaw = Math.PI - 0.35;
     PV.pitch = 0;
     pvLight('op');
     PV.cam.fov = 26;
@@ -672,7 +834,7 @@
       PV.r.setSize(64, 64, false);
       PV.cam.aspect = 1;
       PV.cam.fov = 24;
-      PV.cam.position.set(hp.x + 0.25, hp.y + 0.12, hp.z + 0.95);
+      PV.cam.position.set(hp.x + 0.25, hp.y + 0.12, hp.z - 0.95);
       PV.cam.lookAt(hp.x, hp.y + 0.1, hp.z);
       PV.cam.updateProjectionMatrix();
       PV.r.setClearColor(0x000000, 0);
@@ -1065,14 +1227,15 @@
     const slider = (key, label, min, max, step, fmt) => `<label class="field">${label} <span class="range-val" id="v-${key}">${fmt ? fmt(s[key]) : s[key]}</span><input type="range" id="set-${key}" min="${min}" max="${max}" step="${step}" value="${s[key]}"></label>`;
     const toggle = (key, label) => `<label class="toggle"><input type="checkbox" id="set-${key}" ${s[key] ? 'checked' : ''}> ${label}</label>`;
     const pct = (v) => Math.round(v * 100) + '%';
+    const levelsFmt = (v) => (+v >= 64 ? 'Tam renk' : v);
     const binds = BIND_LABELS.map(([a, l]) => `<span>${l}</span><button type="button" class="bind" data-bind="${a}">${(G.input.binds[a] || []).slice(0, 2).map((c) => `<kbd>${esc(G.keyLabel(c))}</kbd>`).join(' ')}</button>`).join('');
     $('settings-body').innerHTML = `
       ${UI.inGameSettings ? '<div class="set-back"><button type="button" class="btn primary" id="set-back">← Oyuna dön</button></div>' : ''}
       <div class="panel"><h3>Görüntü</h3>
-        ${slider('pixel', 'Piksel boyutu', 1, 5, 1, (v) => (+v === 1 ? 'Kapalı' : v + 'x'))}
-        ${toggle('outline', 'Piksel kontur çizgileri')}
+        ${slider('pixel', 'Retro piksel modu', 1, 5, 1, (v) => (+v === 1 ? 'Kapalı' : v + 'x'))}
+        ${toggle('outline', 'Çizgi film kontur çizgileri')}
         ${toggle('bloom', 'Işık parlaması (bloom)')}
-        ${slider('levels', 'Renk paleti (ton sayısı)', 6, 48, 1)}
+        ${slider('levels', 'Retro renk paleti (ton sayısı)', 6, 64, 1, levelsFmt)}
         <label class="field">Grafik kalitesi <select id="set-quality"><option value="yuksek">Yüksek (gölgeler)</option><option value="orta">Orta</option><option value="dusuk">Düşük (zayıf cihaz)</option></select></label>
         ${slider('fov', 'Görüş alanı', 60, 105, 1, (v) => v + '°')}
         ${toggle('showFps', 'FPS göster')}
@@ -1115,7 +1278,7 @@
       UI.show('s-pause');
     };
     $('set-quality').value = s.quality;
-    const fmts = { pixel: (v) => (+v === 1 ? 'Kapalı' : v + 'x'), fov: (v) => v + '°', master: pct, sfx: pct, music: pct, sens: (v) => (+v).toFixed(2), adsSens: (v) => (+v).toFixed(2), touchSens: (v) => (+v).toFixed(2) };
+    const fmts = { levels: levelsFmt, pixel: (v) => (+v === 1 ? 'Kapalı' : v + 'x'), fov: (v) => v + '°', master: pct, sfx: pct, music: pct, sens: (v) => (+v).toFixed(2), adsSens: (v) => (+v).toFixed(2), touchSens: (v) => (+v).toFixed(2) };
     for (const key of ['pixel', 'levels', 'fov', 'sens', 'adsSens', 'touchSens', 'master', 'sfx', 'music']) {
       const el = $('set-' + key);
       el.oninput = () => {

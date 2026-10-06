@@ -6,6 +6,8 @@
   const U = G.util;
   const IN = G.input;
   const v3 = () => new THREE.Vector3();
+  // dokunmatik yardımcı nişan için tekrar kullanılan vektörler (karede ayırma yok)
+  const _aFwd = new THREE.Vector3(), _aC = new THREE.Vector3(), _aD = new THREE.Vector3();
 
   const H_STAND = 1.8, H_CROUCH = 1.3, H_PRONE = 0.7, H_SLIDE = 1.1;
 
@@ -168,6 +170,7 @@
       if (this.perks.has('isaretci') && target.spotted != null) target.spotted = Math.max(target.spotted, G.time + 5);
     }
     onDeath(attacker, info) {
+      if (G.isTouch && G.haptic) G.haptic([60, 40, 90], true);
       this.deathCam = { t: 0, killer: attacker && attacker.pos ? attacker : null, startPitch: this.pitch };
       this.reload = null;
       this.cook = null;
@@ -191,8 +194,20 @@
       const lookMul = 0.0022 * sens * adsMul * (stunned ? 0.35 : 1);
       this.lookDX = IN.dx;
       this.lookDY = IN.dy;
-      this.yaw -= IN.dx * lookMul;
-      this.pitch -= IN.dy * lookMul * (G.settings.invertY ? -1 : 1);
+      if (G.isTouch) {
+        // dokunmatik: hedef üzerindeyken bakış yavaşlar (sürtünme), jiroskop farkı eklenir
+        const fr = this.assistFr || 1;
+        this.yaw -= IN.dx * lookMul * fr;
+        this.pitch -= IN.dy * lookMul * fr * (G.settings.invertY ? -1 : 1);
+        if (IN.gyroYaw || IN.gyroPitch) {
+          const gm = (G.settings.gyroSens || 1) * (this.adsT > 0.5 ? 0.6 / zoom : 1) * (stunned ? 0.35 : 1);
+          this.yaw += IN.gyroYaw * gm;
+          this.pitch += IN.gyroPitch * gm * (G.settings.invertY ? -1 : 1);
+        }
+      } else {
+        this.yaw -= IN.dx * lookMul;
+        this.pitch -= IN.dy * lookMul * (G.settings.invertY ? -1 : 1);
+      }
       // sarsılma
       if (this.flinch > 0) {
         this.pitch += this.flinch * (Math.random() * 0.8 + 0.2);
@@ -246,29 +261,62 @@
       return d;
     }
 
+    // Dokunmatik yardımcı nişan (yalnızca dokunmatik): hedef yakınında bakış yavaşlar,
+    // nişangâh hafifçe hedefe çekilir; otomatik ateş için "nişangâh hedefte" bilgisini üretir.
     aimAssist(dt) {
-      if (!G.isTouch || this.adsT < 0.6 || !G.game) return;
+      this.assistFr = 1;
+      this.autoFireOn = false;
+      if (!G.isTouch || !G.game || !this.alive) return;
       const cam = G.camera;
-      const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-      let best = null, bestA = 7 * U.DEG;
-      for (const h of G.game.hittables()) {
-        if (!h.alive || h === this || h.isEnt || !G.game.canHurt(this, h)) continue;
-        const c = h.chest(v3());
-        const d = c.clone().sub(cam.position);
+      const fwd = _aFwd.set(0, 0, -1).applyQuaternion(cam.quaternion);
+      const ads = this.adsT > 0.5;
+      const cone = (ads ? 10 : 7.5) * U.DEG;
+      let best = null, bestS = 1, bestA = 0, bestDist = 0, bx = 0, by = 0, bz = 0;
+      const list = G.game.hittables();
+      for (let i = 0; i < list.length; i++) {
+        const h = list[i];
+        // atış poligonu hedefleri dahil (yalnızca kalkıkken); seri araçları hariç
+        if (!h.alive || h === this || !h.chest || !G.game.canHurt(this, h)) continue;
+        if (h.isEnt && !(h.isRangeTarget && h.active && h.up >= 0.8)) continue;
+        const c = h.chest(_aC);
+        const d = _aD.copy(c).sub(cam.position);
         const dist = d.length();
-        if (dist > 60) continue;
-        d.normalize();
-        const a = Math.acos(U.clamp(d.dot(fwd), -1, 1));
-        if (a < bestA && G.world.los(cam.position.x, cam.position.y, cam.position.z, c.x, c.y, c.z)) {
+        if (dist > 65 || dist < 0.3) continue;
+        d.multiplyScalar(1 / dist);
+        // hedefin açısal yarıçapını düş: yakındaki hedefler daha geniş yakalanır
+        const a = Math.max(0, Math.acos(U.clamp(d.dot(fwd), -1, 1)) - Math.atan(0.3 / dist));
+        const sc = a / cone;
+        if (sc < bestS && G.world.los(cam.position.x, cam.position.y, cam.position.z, c.x, c.y, c.z)) {
+          bestS = sc;
+          best = h;
           bestA = a;
-          best = d;
+          bestDist = dist;
+          bx = d.x;
+          by = d.y;
+          bz = d.z;
         }
       }
-      if (best) {
-        const ty = Math.atan2(-best.x, -best.z);
-        const tp = Math.asin(U.clamp(best.y, -1, 1));
-        this.yaw += U.wrapAngle(ty - this.yaw) * Math.min(1, dt * 4);
-        this.pitch += (tp - this.pitch) * Math.min(1, dt * 4);
+      if (!best) return;
+      const close = 1 - bestS; // 0..1
+      // sürtünme: hedefin üstünde parmak hareketi daha az döndürür
+      this.assistFr = 1 - close * (ads ? 0.6 : 0.45);
+      // mıknatıs: yumuşak çekim (nişanda ve ateş ederken biraz daha güçlü)
+      const firing = IN.down('fire');
+      // mıknatıs yalnızca oyuncu bir şey yaparken (bakış, yürüme, ateş, nişan) çalışır:
+      // parmaklar ekrandan kalkınca kamera kendi kendine düşmana dönmez
+      if (ads || firing || IN.dx || IN.dy || this.hSpeed > 0.5) {
+        const rate = (ads ? 3.2 : 1.1) * close + (firing ? 0.8 : 0) + (ads ? 0.6 : 0);
+        const pull = Math.min(1, dt * rate);
+        const ty = Math.atan2(-bx, -bz);
+        const tp = Math.asin(U.clamp(by, -1, 1));
+        this.yaw += U.wrapAngle(ty - this.yaw) * pull;
+        this.pitch += (tp - this.pitch) * pull;
+      }
+      // otomatik ateş: nişangâh gövdenin üzerinde mi?
+      if (G.settings.touchAutoFire && bestA < 1.2 * U.DEG + Math.atan(0.12 / bestDist)) {
+        const s = this.weapon && this.weapon.stats;
+        const needAds = s && s.cls === 'sniper' && this.adsT < 0.8;
+        if (s && !needAds && s.cls !== 'launcher' && !(G.streaks && G.streaks.targeting)) this.autoFireOn = true;
       }
     }
 
@@ -301,7 +349,7 @@
         if (this.prone) this.setStance('crouch');
       }
       const wantSprint = (IN.down('sprint') || IN.touch.sprint) && moving && !this.prone && this.slideT <= 0;
-      const blockSprint = this.adsT > 0.3 || IN.down('fire') || this.cook || this.busyType === 'drink';
+      const blockSprint = this.adsT > 0.3 || IN.down('fire') || this.autoFireOn || this.cook || this.busyType === 'drink';
       const wasSprinting = this.sprinting;
       this.sprinting = wantSprint && !blockSprint && this.grounded !== false;
       if (this.sprinting && this.crouching) this.setStance('stand');
@@ -619,8 +667,11 @@
 
       // ateş
       const canFire = this.busy <= 0 && this.switching <= 0 && this.sprintFireT <= 0 && this.fireCD <= 0 && (!this.reload || (s.shellReload && w.ammo > 0));
-      const trigger = s.mode === 'auto' ? IN.down('fire') : IN.hit('fire');
-      if (this.sprinting && IN.down('fire')) {
+      let trigger = s.mode === 'auto' ? IN.down('fire') : IN.hit('fire');
+      // dokunmatik otomatik ateş (aimAssist belirler; masaüstünde hep kapalı)
+      if (this.autoFireOn && w.ammo > 0) trigger = true;
+      else if (this.autoFireOn && w.ammo === 0 && !this.reload && this.busy <= 0) this.startReload();
+      if (this.sprinting && (IN.down('fire') || this.autoFireOn)) {
         this.sprinting = false;
       }
       if (s.mode === 'burst') {
@@ -686,6 +737,8 @@
     shoot(s, w) {
       const cam = G.camera;
       w.ammo--;
+      // dokunmatik titreşim: tek atışlık silahlarda küçük bir tık
+      if (G.isTouch && G.haptic && s.mode !== 'auto') G.haptic(s.cls === 'sniper' || s.cls === 'shotgun' ? 22 : 9);
       const moving = this.hSpeed > 1;
       let spread;
       if (this.adsT > 0.85) spread = s.adsSpread + this.bloom * 0.15;
@@ -813,7 +866,7 @@
           const dmg = zmode ? MW.zm * (this.zmPerks.has('ciftatis') ? 1.25 : 1) * (G.game.instakill ? 99 : 1) * (1 + (G.game.zd ? G.game.zd.round * 0.05 : 0)) : 150;
           const c = t.chest(v3());
           t.takeDamage(dmg, this, { weapon: MW.name, weaponId: 'melee', melee: true, dir: c.clone().sub(this.pos).normalize(), point: c });
-          G.fx.blood(c.x, c.y, c.z, -Math.sin(this.yaw), 0, -Math.cos(this.yaw), 1.5, t.kind === 'zombie' ? [0.35, 0.08, 0.05] : null);
+          G.fx.blood(c.x, c.y, c.z, -Math.sin(this.yaw), 0, -Math.cos(this.yaw), 1.5, t.kind === 'zombie' ? [0.62, 0.95, 0.72] : null);
           G.audio.play('stab');
           G.hud && G.hud.hitmarker(!t.alive, false);
         }
