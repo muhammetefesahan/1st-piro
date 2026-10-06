@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Gölge Timi</title>
+<meta name="description" content="Tarayıcıda çalışan, piksel-art görünümlü 3D birinci şahıs nişancı oyunu: hikâye, online kapışma, botlara karşı çok oyunculu ve zombi modu.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Silkscreen:wght@400;700&family=VT323&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!--GT-BODY-START-->
+<canvas id="game" aria-label="Oyun alanı"></canvas>
+<div id="hud" hidden></div>
+<div id="touch" hidden></div>
+
+<div id="ui">
+  <!-- Açılış -->
+  <section id="s-boot" class="screen boot">
+    <div class="boot-inner">
+      <div class="logo"><span class="logo-a">GÖLGE</span><span class="logo-b">TİMİ</span></div>
+      <p class="tag">Kızıl Sis Harekâtı</p>
+      <button id="boot-start" class="btn primary big" type="button">Başlamak için dokun</button>
+      <p id="boot-msg" class="muted">3D motor yükleniyor…</p>
+      <p class="muted small">Klavye + fare önerilir. Telefonda dokunmatik kontroller açılır.</p>
+    </div>
+  </section>
+
+  <!-- Ana menü -->
+  <section id="s-main" class="screen" hidden>
+    <header class="topbar">
+      <div class="logo small"><span class="logo-a">GÖLGE</span><span class="logo-b">TİMİ</span></div>
+      <div id="main-rank" class="rank-chip"></div>
+    </header>
+    <div class="main-grid">
+      <nav class="main-menu" aria-label="Ana menü">
+        <button class="menu-item" data-go="s-story" type="button"><b>HİKÂYE</b><span>Kızıl Sis harekâtı · 5 görev</span></button>
+        <button class="menu-item" data-go="s-online" type="button"><b>ONLINE KAPIŞMA</b><span>Arkadaşlarınla gerçek zamanlı</span></button>
+        <button class="menu-item" data-go="s-mp" type="button"><b>ÇOK OYUNCULU</b><span>Botlara karşı · TÖM, Bölge, Herkes Tek</span></button>
+        <button class="menu-item" data-go="s-zm" type="button"><b>ZOMBİLER</b><span>Kayıp Tesis · rauntlar</span></button>
+        <button class="menu-item" data-go="range" type="button"><b>ATIŞ POLİGONU</b><span>Silahları dene</span></button>
+        <button class="menu-item" data-go="s-loadout" type="button"><b>SINIFLAR & SİLAH USTASI</b><span>Silah, eklenti, yetenek</span></button>
+        <button class="menu-item" data-go="s-settings" type="button"><b>AYARLAR</b><span>Görüntü, ses, kontrol, yaka fotoğrafı</span></button>
+        <button class="menu-item" data-go="s-help" type="button"><b>NASIL OYNANIR</b><span>Tuşlar ve ipuçları</span></button>
+      </nav>
+      <aside class="op-card panel">
+        <div class="op-head">
+          <div class="op-photo" id="op-photo"><span>YAKA<br>FOTOĞRAFI</span></div>
+          <div>
+            <div class="op-name" id="op-name">Gölge-1</div>
+            <div class="op-rank" id="op-rank">Er · Seviye 1</div>
+            <div class="xpbar"><i id="op-xp"></i></div>
+            <div class="op-cap" id="op-cap"></div>
+          </div>
+        </div>
+        <dl class="op-stats" id="op-stats"></dl>
+        <p class="op-tip" id="op-tip"></p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Hikâye -->
+  <section id="s-story" class="screen" hidden>
+    <header class="topbar"><button class="btn back" data-go="s-main" type="button">← Geri</button><h2>HİKÂYE · KIZIL SİS</h2></header>
+    <div class="story-grid">
+      <div class="panel prologue" id="story-prologue"></div>
+      <div class="mission-list" id="mission-list"></div>
+    </div>
+    <div class="row-end"><label class="field inline">Zorluk <select id="story-diff"><option value="kolay">Kolay</option><option value="normal" selected>Normal</option><option value="zor">Zor</option><option value="veteran">Veteran</option></select></label><label class="field inline">Sınıf <select id="story-class"></select></label></div>
+  </section>
+
+  <!-- Çok oyunculu -->
+  <section id="s-mp" class="screen" hidden>
+    <header class="topbar"><button class="btn back" data-go="s-main" type="button">← Geri</button><h2>ÇOK OYUNCULU · BOTLARA KARŞI</h2></header>
+    <div class="setup-grid">
+      <div class="panel">
+        <h3>Mod</h3>
+        <div class="choice" id="mp-mode"></div>
+        <h3>Harita</h3>
+        <div class="choice maps" id="mp-map"></div>
+      </div>
+      <div class="panel">
+        <h3>Kurallar</h3>
+        <label class="field">Zorluk <select id="mp-diff"><option value="kolay">Kolay</option><option value="normal" selected>Normal</option><option value="zor">Zor</option><option value="veteran">Veteran</option></select></label>
+        <label class="field">Takım başına oyuncu <select id="mp-bots"><option>3</option><option>4</option><option selected>5</option><option>6</option></select></label>
+        <label class="field">Skor limiti <select id="mp-limit"></select></label>
+        <label class="field">Başlangıç sınıfı <select id="mp-class"></select></label>
+        <button id="mp-start" class="btn primary big" type="button">MAÇI BAŞLAT</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Zombiler -->
+  <section id="s-zm" class="screen" hidden>
+    <header class="topbar"><button class="btn back" data-go="s-main" type="button">← Geri</button><h2>ZOMBİLER · KAYIP TESİS</h2></header>
+    <div class="setup-grid">
+      <div class="panel zm-panel">
+        <p>Elinde bir tabanca ve 500 puanla başlarsın. Zombileri vurdukça puan kazan: kapıları aç, duvardaki silahları al, <b>Gizem Kutusu</b>’nu dene.</p>
+        <ul class="ticks">
+          <li><b>Gücü aç</b>: yetenek makineleri ve Dönüştürücü çalışır.</li>
+          <li><b>Çay Ocağı</b> (koridorda): elektrik istemez. Demli Çay hasarı artırır, her raunt bir bardak çay verir.</li>
+          <li><b>Çay Molası</b> güçlendirmesi: zombiler 7 saniye çay molasına çıkar.</li>
+          <li>Her 5 rauntta bir <b>köpek raundu</b>.</li>
+        </ul>
+        <p class="muted" id="zm-best"></p>
+        <button id="zm-start" class="btn primary big" type="button">HAYATTA KAL</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Online -->
+  <section id="s-online" class="screen" hidden>
+    <header class="topbar"><button class="btn back" data-go="s-main" type="button">← Geri</button><h2>ONLINE KAPIŞMA</h2></header>
+    <div class="setup-grid">
+      <div class="panel">
+        <label class="field">Çağrı adın <input id="on-name" maxlength="16" autocomplete="off"></label>
+        <label class="field">Oda kodu <input id="on-code" maxlength="12" autocomplete="off" spellcheck="false"></label>
+        <div class="btn-row"><button id="on-join" class="btn primary" type="button">Odaya bağlan</button><button id="on-leave" class="btn" type="button" hidden>Odadan çık</button></div>
+        <p class="muted small" id="on-status">Aynı oda kodunu giren oyuncular aynı maçta buluşur.</p>
+        <div class="note">Online kapışma, bu oyunun bağlantısını Claude’da açan oyuncular arasında çalışır. Linki arkadaşına gönder, aynı oda kodunu girin. Oyun başka bir yerde açıldıysa yalnızca aynı tarayıcının sekmeleri arasında çalışır.</div>
+      </div>
+      <div class="panel">
+        <h3>Odadaki oyuncular</h3>
+        <ul class="peer-list" id="on-peers"><li class="muted">Henüz bağlanmadın.</li></ul>
+        <div id="on-host" hidden>
+          <label class="field">Mod <select id="on-mode"><option value="ffa">Herkes Tek</option><option value="tdm">Takım Ölüm Maçı</option></select></label>
+          <label class="field">Harita <select id="on-map"></select></label>
+          <label class="field">Öldürme limiti <select id="on-limit"><option>15</option><option selected>25</option><option>40</option></select></label>
+          <button id="on-start" class="btn primary big" type="button">MAÇI BAŞLAT</button>
+        </div>
+        <button id="on-enter" class="btn primary big" type="button" hidden>DEVAM EDEN MAÇA KATIL</button>
+        <p class="muted small" id="on-wait" hidden>Ev sahibinin maçı başlatması bekleniyor…</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sınıflar -->
+  <section id="s-loadout" class="screen" hidden>
+    <header class="topbar"><button class="btn back" data-go="s-main" type="button">← Geri</button><h2>SINIFLAR & SİLAH USTASI</h2></header>
+    <div class="loadout-grid">
+      <div class="class-tabs" id="class-tabs"></div>
+      <div class="panel slots" id="class-slots"></div>
+      <div class="panel gunsmith" id="gunsmith">
+        <canvas id="gun-preview" width="480" height="240" aria-label="Silah önizlemesi"></canvas>
+        <div id="gun-info"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ayarlar -->
+  <section id="s-settings" class="screen" hidden>
+    <header class="topbar"><button class="btn back" data-go="s-main" type="button">← Geri</button><h2>AYARLAR</h2></header>
+    <div class="settings-grid" id="settings-body"></div>
+  </section>
+
+  <!-- Yardım -->
+  <section id="s-help" class="screen" hidden>
+    <header class="topbar"><button class="btn back" data-go="s-main" type="button">← Geri</button><h2>NASIL OYNANIR</h2></header>
+    <div class="help-grid" id="help-body"></div>
+  </section>
+
+  <!-- Brifing -->
+  <section id="s-brief" class="screen" hidden>
+    <div class="brief panel">
+      <div class="brief-place" id="brief-place"></div>
+      <h2 id="brief-title"></h2>
+      <p id="brief-text"></p>
+      <div class="btn-row"><button class="btn" data-go="s-story" type="button">Geri</button><button id="brief-go" class="btn primary big" type="button">GÖREVE BAŞLA</button></div>
+    </div>
+  </section>
+
+  <!-- Duraklat -->
+  <section id="s-pause" class="screen overlay" hidden>
+    <div class="pause panel">
+      <h2>DURAKLATILDI</h2>
+      <button id="p-resume" class="btn primary big" type="button">DEVAM ET</button>
+      <button id="p-class" class="btn" type="button">Sınıf değiştir</button>
+      <button id="p-settings" class="btn" type="button">Ayarlar</button>
+      <button id="p-quit" class="btn danger" type="button">Maçtan çık</button>
+      <p class="muted small" id="p-confirm" hidden>Çıkmak için tekrar bas.</p>
+    </div>
+  </section>
+
+  <!-- Bitiş -->
+  <section id="s-end" class="screen overlay" hidden>
+    <div class="end panel">
+      <h2 id="end-title"></h2>
+      <p id="end-sub"></p>
+      <div id="end-outro"></div>
+      <div id="end-stats"></div>
+      <div class="xp-gain"><span id="end-xp"></span><div class="xpbar"><i id="end-xpbar"></i></div><span id="end-level"></span></div>
+      <div class="btn-row"><button id="end-again" class="btn primary" type="button">Tekrar oyna</button><button id="end-next" class="btn primary" type="button" hidden>Sonraki görev</button><button id="end-menu" class="btn" type="button">Ana menü</button></div>
+    </div>
+  </section>
+
+  <div id="toast" hidden></div>
+  <div id="rotate-hint" hidden>Daha rahat oynamak için telefonu yan çevir.</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/maps.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/world.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/characters.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/player.js"></script>
+<script src="js/bots.js"></script>
+<script src="js/zombies.js"></script>
+<script src="js/streaks.js"></script>
+<script src="js/modes.js"></script>
+<script src="js/story.js"></script>
+<script src="js/net.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/touch.js"></script>
+<script src="js/menu.js"></script>
+<script src="js/main.js"></script>
+<!--GT-BODY-END-->
+</body>
+</html>
