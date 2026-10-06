@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(root, "index.html"), "utf8");
-const css = readFileSync(join(root, "style.css"), "utf8");
+// style.css (genel) + mobile.css (telefon / dokunmatik) tek blokta birleşir
+const css = ["style.css", "mobile.css"].map((f) => readFileSync(join(root, f), "utf8")).join("\n");
 
 const start = html.indexOf("<!--GT-BODY-START-->");
 const end = html.indexOf("<!--GT-BODY-END-->");
@@ -21,7 +22,7 @@ body = body.replace(/<script src="js\/[^"]+"><\/script>\n?/g, "");
 const safeBundle = bundle.replace(/<\/script/gi, "<\\/script");
 body = body.replace("<!--GT-BODY-END-->", "") + `<script>\n${safeBundle}\n</script>\n`;
 
-const fonts = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Silkscreen:wght@400;700&family=VT323&display=swap">';
+const fonts = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@600;700;800;900&display=swap">';
 const title = "<title>Gölge Timi</title>";
 
 const fragIdx = process.argv.indexOf("--fragment");
@@ -32,7 +33,10 @@ if (fragIdx > 0) {
 } else {
   mkdirSync(join(root, "dist"), { recursive: true });
   const out = join(root, "dist", "golge-timi.html");
-  const head = html.slice(0, html.indexOf("<body>")).replace(/<link rel="stylesheet" href="style.css">/, `<style>\n${css}\n</style>`);
+  const head = html
+    .slice(0, html.indexOf("<body>"))
+    .replace(/<link rel="stylesheet" href="style.css">/, `<style>\n${css}\n</style>`)
+    .replace(/\n?<link rel="stylesheet" href="mobile.css">/, "");
   writeFileSync(out, `${head}<body>\n${body}</body>\n</html>\n`);
   console.log("yazıldı:", out);
 }

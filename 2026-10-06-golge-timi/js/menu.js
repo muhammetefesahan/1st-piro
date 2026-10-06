@@ -1095,6 +1095,7 @@
         ${slider('music', 'Müzik', 0, 1, 0.05, pct)}
         ${toggle('announcer', 'Sesli anons (tarayıcı destekliyorsa)')}
       </div>
+      ${G.touch && G.touch.settingsPanel ? G.touch.settingsPanel() : ''}
       <div class="panel"><h3>Profil · Yaka fotoğrafı</h3>
         <label class="field">Çağrı adı <input id="set-callsign" maxlength="16" value="${esc(s.callsign || '')}"></label>
         <div class="photo-box">
@@ -1149,6 +1150,8 @@
       G.saveSettings();
     };
     for (const b of $('settings-body').querySelectorAll('[data-bind]')) b.onclick = () => startRebind(b);
+    // Dokunmatik ayarlar paneli touch.js tarafından sağlanır
+    if (G.touch && G.touch.bindSettingsPanel) G.touch.bindSettingsPanel($('settings-body'));
     $('set-binds-reset').onclick = () => {
       G.resetBinds();
       renderSettings();
