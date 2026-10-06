@@ -86,6 +86,14 @@
     announcer: true,
     callsign: 'Gölge-1',
     touchSens: 1.0,
+    // dokunmatik (touch.js): tuş boyutu/opaklığı, otomatik ateş, jiroskop, titreşim, solak düzen
+    touchSize: 1.0,
+    touchOpacity: 0.9,
+    touchAutoFire: true,
+    touchGyro: 'off', // 'off' | 'ads' | 'on'
+    gyroSens: 1.0,
+    haptics: true,
+    touchLeft: false,
     pixel: 1,
     outline: true,
     levels: 64,
@@ -183,6 +191,8 @@
     touchHits: Object.create(null),
     dx: 0,
     dy: 0,
+    gyroYaw: 0, // jiroskop bakış farkı (radyan, touch.js doldurur, player.js kullanır)
+    gyroPitch: 0,
     wheel: 0,
     locked: false,
     captureGame: false, // oyun sırasında tuşları yut
@@ -208,7 +218,14 @@
       for (const k in this.touchHits) delete this.touchHits[k];
       this.dx = 0;
       this.dy = 0;
+      this.gyroYaw = 0;
+      this.gyroPitch = 0;
       this.wheel = 0;
+    },
+    // tüm dokunmatik girdileri bırak (duraklatma / ölüm / menü)
+    releaseTouch() {
+      for (const k in this.touch) this.touch[k] = k === 'moveX' || k === 'moveY' ? null : false;
+      for (const k in this.touchHits) delete this.touchHits[k];
     },
     clear() {
       for (const k in this.keys) delete this.keys[k];
@@ -313,6 +330,23 @@
     G.settings.v = 3;
     G.saveSettings();
   }
+
+  // Titreşim geri bildirimi (telefon): ayar kapalıysa ya da destek yoksa sessizce geçer.
+  // pattern: ms sayısı veya [titreşim, ara, titreşim...] dizisi
+  let lastHaptic = 0;
+  G.haptic = function (pattern, force) {
+    if (!G.settings.haptics || !G.isTouch) return false;
+    try {
+      if (!navigator.vibrate) return false;
+      const now = performance.now();
+      // çok sık titreşim pili yorar ve rahatsız eder
+      if (!force && now - lastHaptic < 45) return false;
+      lastHaptic = now;
+      return navigator.vibrate(pattern || 12);
+    } catch (e) {
+      return false;
+    }
+  };
 
   // Basit olay yayıcı
   const listeners = {};

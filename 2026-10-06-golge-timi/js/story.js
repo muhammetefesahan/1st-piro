@@ -39,6 +39,123 @@
     return m.bots.filter((b) => b.team === 1 && b.alive).length;
   }
 
+  // Sevimli görev nesneleri (yalnızca görsel; çarpışma yok). Biçim yardımcıları props.js'teki G.cuteKit'ten.
+  let screenTex = null;
+  function terminalScreen() {
+    if (screenTex) return screenTex;
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 128;
+    const ctx = c.getContext('2d');
+    const draw = () => {
+      const g = ctx.createLinearGradient(0, 0, 0, 128);
+      g.addColorStop(0, '#9ff5d0');
+      g.addColorStop(1, '#3ddc97');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 256, 128);
+      ctx.fillStyle = '#3b2a4a';
+      // gülen ekran yüzü
+      for (const x of [92, 164]) {
+        ctx.beginPath();
+        ctx.ellipse(x, 50, 10, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.lineWidth = 7;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#3b2a4a';
+      ctx.beginPath();
+      ctx.arc(128, 62, 22, 0.2 * Math.PI, 0.8 * Math.PI);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,111,168,0.6)';
+      for (const x of [70, 186]) {
+        ctx.beginPath();
+        ctx.ellipse(x, 72, 12, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#fffaf3';
+      ctx.fillRect(40, 100, 176, 14);
+      ctx.fillStyle = '#ff6fa8';
+      ctx.fillRect(40, 100, 110, 14);
+      ctx.font = '800 18px "Baloo 2", "Nunito", sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#3b2a4a';
+      ctx.fillText('VERİ', 236, 24);
+    };
+    draw();
+    screenTex = new THREE.CanvasTexture(c);
+    if (G.cuteKit && G.cuteKit.onFonts) G.cuteKit.onFonts(() => {
+      draw();
+      screenTex.needsUpdate = true;
+    });
+    return screenTex;
+  }
+  function cuteProp(kind) {
+    const K = G.cuteKit;
+    if (!K || !G.Bucket) return null;
+    const t = K.tpl(), C = K.C, M = K.mtx;
+    const g = new THREE.Group();
+    const B = new G.Bucket();
+    if (kind === 'terminal') {
+      for (const [x, z] of [[-0.34, -0.2], [0.34, -0.2], [-0.34, 0.2], [0.34, 0.2]]) B.addGeo(t.blob, M(x, 0.05, z, 0, 0.09, 0.06, 0.09), C.ink);
+      B.addGeo(K.roundBox(0.9, 1.45, 0.55, 0.16), M(0, 0.8, 0, 0), C.skyUI);
+      B.addGeo(K.roundBox(0.76, 0.56, 0.06, 0.12), M(0, 1.18, 0.27, 0), C.cream);
+      B.addGeo(K.roundBox(0.8, 0.08, 0.3, 0.04), M(0, 0.78, 0.38, 0, 1, 1, 1, 0.3), C.lilac);
+      for (let i = 0; i < 4; i++) B.addGeo(t.box, M(-0.27 + i * 0.18, 0.83, 0.38, 0, 0.12, 0.03, 0.1, 0.3), [C.coral, C.sun, C.mintUI, C.bubble][i]);
+      B.addGeo(t.cyl6, M(0.25, 1.72, 0, 0, 0.02, 0.3, 0.02), C.ink);
+      B.addGeo(t.sph, M(0.25, 1.9, 0, 0, 0.07), C.bubble);
+      B.addGeo(K.starGeo(0.1, 0.03), M(0.46, 0.6, 0, Math.PI / 2), C.sun);
+      const mesh = B.mesh(K.toon('st-prop', { vertexColors: true }), true);
+      mesh.receiveShadow = false;
+      g.add(mesh);
+      const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.44), new THREE.MeshBasicMaterial({ map: terminalScreen() }));
+      scr.position.set(0, 1.18, 0.305);
+      g.add(scr);
+      return g;
+    }
+    if (kind === 'case') {
+      B.addGeo(K.roundBox(0.62, 1.12, 0.62, 0.12), M(0, 0.56, 0, 0), C.butter);
+      B.addGeo(t.box, M(0, 1.1, 0, 0, 0.66, 0.05, 0.66), C.tang);
+      B.addGeo(K.roundBox(0.7, 0.42, 0.26, 0.1), M(0, 1.34, 0, 0), C.bubble);
+      B.addGeo(t.torus, M(0, 1.58, 0, 0, 0.11, 0.09, 0.14), C.ink);
+      for (const s of [-1, 1]) B.addGeo(t.box, M(s * 0.2, 1.48, 0.13, 0, 0.08, 0.06, 0.03), C.sun);
+      B.addGeo(K.starGeo(0.07, 0.02), M(-0.22, 1.3, 0.135, 0), C.white);
+      const mesh = B.mesh(K.toon('st-prop', { vertexColors: true }), true);
+      mesh.receiveShadow = false;
+      g.add(mesh);
+      const vial = new THREE.Mesh(t.sph, new THREE.MeshBasicMaterial({ color: 0xff7ab0 }));
+      vial.scale.set(0.07, 0.09, 0.03);
+      vial.position.set(0.1, 1.33, 0.135);
+      g.add(vial);
+      return g;
+    }
+    if (kind === 'bomb') {
+      B.addGeo(t.sph, M(0, 0.26, 0, 0, 0.26), 0x6a5acd);
+      B.addGeo(t.blob, M(-0.09, 0.36, 0.17, 0, 0.06, 0.04, 0.03), C.white);
+      B.addGeo(t.cyl6, M(0, 0.53, 0, 0, 0.08, 0.08, 0.08), C.ink);
+      B.addGeo(t.rope, K.segMtx(new THREE.Vector3(0, 0.56, 0), new THREE.Vector3(0.08, 0.7, 0.02), 0.018), C.cream);
+      const mesh = B.mesh(K.toon('st-prop', { vertexColors: true }), true);
+      mesh.receiveShadow = false;
+      g.add(mesh);
+      const spark = new THREE.Mesh(K.starGeo(0.08, 0.03), new THREE.MeshBasicMaterial({ color: 0xffd23f }));
+      spark.position.set(0.09, 0.73, 0.02);
+      g.add(spark);
+      return g;
+    }
+    if (kind === 'docs') {
+      B.addGeo(K.roundBox(0.9, 0.08, 0.6, 0.04), M(0, 0.7, 0, 0), C.wood);
+      for (const [x, z] of [[-0.38, -0.24], [0.38, -0.24], [-0.38, 0.24], [0.38, 0.24]]) B.addGeo(t.box, M(x, 0.34, z, 0, 0.06, 0.68, 0.06), C.ink);
+      B.addGeo(t.box, M(0.05, 0.76, 0.02, 0.15, 0.44, 0.03, 0.32), C.cream);
+      B.addGeo(t.box, M(-0.02, 0.79, 0, -0.1, 0.42, 0.03, 0.3), C.coral);
+      B.addGeo(t.box, M(-0.02, 0.805, 0.1, -0.1, 0.2, 0.01, 0.05), C.white);
+      B.addGeo(K.starGeo(0.05, 0.01), M(0.12, 0.81, -0.06, 0, 1, 1, 1, -Math.PI / 2), C.sun);
+      const mesh = B.mesh(K.toon('st-prop', { vertexColors: true }), true);
+      mesh.receiveShadow = false;
+      g.add(mesh);
+      return g;
+    }
+    return null;
+  }
+
   // Ortak görev çatısı
   function mission(def) {
     return Object.assign(
@@ -183,6 +300,11 @@
         enter(m) {
           for (let i = 0; i < 4; i++) spawnEnemy(m, cellPos(m, 31, 12 + i * 2), { guard: false });
           m.docPos = cellPos(m, 15, 16);
+          m.docMesh = cuteProp('docs');
+          if (m.docMesh) {
+            m.docMesh.position.copy(m.docPos);
+            m.scene.add(m.docMesh);
+          }
           m.marker = G.hud.worldMarker(m.docPos, 'BELGE');
         },
         interact: (m) => ({ pos: m.docPos, text: 'Belgeleri topla', time: 2.5, onDone: (mm) => (mm.gotDocs = true) }),
@@ -193,6 +315,7 @@
         radio: [['RIZA', 'Belgeler bende! Dikkat, doğudan takviye geliyor!']],
         enter(m) {
           G.hud.removeMarker(m.marker);
+          if (m.docMesh) m.scene.remove(m.docMesh);
           for (let i = 0; i < 7; i++) spawnEnemy(m, cellPos(m, 31 + (i % 2), 3 + i * 3), {});
         },
         done: (m) => aliveEnemies(m) === 0,
@@ -345,6 +468,11 @@
             time: 3,
             onDone: () => {
               best.done = true;
+              const bomb = cuteProp('bomb');
+              if (bomb) {
+                bomb.position.copy(best.pos);
+                m.scene.add(bomb);
+              }
               G.audio.play('beep', { priority: true });
               G.hud.removeMarker(m.markers[m.charges.indexOf(best)]);
             },
@@ -422,8 +550,12 @@
         enter(m) {
           G.hud.removeMarker(m.marker);
           m.termPos = m.world.cellCenter(28, 3);
-          const term = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.6, 0.5), new THREE.MeshStandardMaterial({ color: 0x223040, emissive: 0x103050 }));
-          term.position.copy(m.termPos).setY(0.8);
+          let term = cuteProp('terminal');
+          if (term) term.position.copy(m.termPos).setY(0);
+          else {
+            term = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.6, 0.5), new THREE.MeshStandardMaterial({ color: 0x223040, emissive: 0x103050 }));
+            term.position.copy(m.termPos).setY(0.8);
+          }
           m.scene.add(term);
           m.marker = G.hud.worldMarker(m.termPos, 'TERMİNAL');
         },
@@ -509,8 +641,12 @@
         enter(m) {
           G.hud.bossBar(null);
           m.casePos = cellPos(m, 16, 23);
-          const c = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.5), new THREE.MeshStandardMaterial({ color: 0xc0c4c8, metalness: 0.8, emissive: 0x401010 }));
-          c.position.copy(m.casePos).setY(1.4);
+          let c = cuteProp('case');
+          if (c) c.position.copy(m.casePos).setY(0);
+          else {
+            c = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.5), new THREE.MeshStandardMaterial({ color: 0xc0c4c8, metalness: 0.8, emissive: 0x401010 }));
+            c.position.copy(m.casePos).setY(1.4);
+          }
           m.scene.add(c);
           m.marker = G.hud.worldMarker(m.casePos, 'KASA');
         },

@@ -16,7 +16,7 @@
   <div id="h-hit"><i></i><i></i><i></i><i></i></div>
   <div id="h-dmg"></div>
   <div id="h-markers"></div>
-  <canvas id="h-compass" width="460" height="26"></canvas>
+  <canvas id="h-compass" width="920" height="68"></canvas>
   <div id="h-lowammo" hidden></div>
   <div id="h-top">
     <div id="h-score" class="panel">
@@ -79,45 +79,340 @@
     $('h-simit').querySelector('img').src = G.itemIcon('simit');
   };
 
-  // ---------------- Piksel ikonlar (ekipman, seriler, yetenekler) ----------------
-  const PAL = {
-    k: '#0a0d0e', g: '#6f8a42', G: '#3f5524', s: '#d2d9dc', S: '#7c868a', r: '#e8432f', y: '#ffcc4d', o: '#ff9a3d',
-    b: '#9a6630', B: '#5c3a1a', w: '#f4f2ea', t: '#d0461c', T: '#7a2410', c: '#7be0c3', l: '#a6aeb0',
+  // ---------------- Tatlı ikonlar (ekipman, seriler, yetenekler) ----------------
+  // 48x48 tuvalde vektör çizim: şeker renkleri, mürdüm kontur, parlama ve minik yüzler.
+  const INK = '#3b2a4a';
+  const IC = {
+    rr(x, X, Y, w, h, r) {
+      x.beginPath();
+      x.moveTo(X + r, Y);
+      x.arcTo(X + w, Y, X + w, Y + h, r);
+      x.arcTo(X + w, Y + h, X, Y + h, r);
+      x.arcTo(X, Y + h, X, Y, r);
+      x.arcTo(X, Y, X + w, Y, r);
+      x.closePath();
+    },
+    ink(x, fill, lw) {
+      if (fill) {
+        x.fillStyle = fill;
+        x.fill();
+      }
+      x.lineWidth = lw || 3;
+      x.strokeStyle = INK;
+      x.stroke();
+    },
+    circle(x, cx, cy, r) {
+      x.beginPath();
+      x.arc(cx, cy, r, 0, Math.PI * 2);
+    },
+    shine(x, cx, cy, rx, ry) {
+      x.save();
+      x.globalAlpha = 0.6;
+      x.fillStyle = '#fff';
+      x.beginPath();
+      x.ellipse(cx, cy, rx, ry, -0.6, 0, Math.PI * 2);
+      x.fill();
+      x.restore();
+    },
+    face(x, cx, cy, gap) {
+      x.fillStyle = INK;
+      for (const s of [-1, 1]) {
+        x.beginPath();
+        x.arc(cx + s * gap, cy, 2.1, 0, Math.PI * 2);
+        x.fill();
+      }
+      x.beginPath();
+      x.arc(cx, cy + 2, 2.6, 0.15 * Math.PI, 0.85 * Math.PI);
+      x.lineWidth = 1.8;
+      x.strokeStyle = INK;
+      x.stroke();
+      x.fillStyle = 'rgba(255,111,168,0.55)';
+      for (const s of [-1, 1]) {
+        x.beginPath();
+        x.ellipse(cx + s * (gap + 3.2), cy + 3.2, 2.4, 1.5, 0, 0, Math.PI * 2);
+        x.fill();
+      }
+    },
+    bolt(x, cx, cy, s, fill) {
+      x.beginPath();
+      x.moveTo(cx + 2 * s, cy - 10 * s);
+      x.lineTo(cx - 6 * s, cy + 1 * s);
+      x.lineTo(cx - 0.5 * s, cy + 1 * s);
+      x.lineTo(cx - 2.5 * s, cy + 10 * s);
+      x.lineTo(cx + 6 * s, cy - 2 * s);
+      x.lineTo(cx + 0.5 * s, cy - 2 * s);
+      x.closePath();
+      IC.ink(x, fill, 2.6);
+    },
   };
   const ICONS = {
-    frag: ['.....ss.....', '....s..s....', '....kkkk....', '...kSSSSk...', '..kgggggGk..', '.kgGgggGgGk.', '.kggggggggk.', '.kgGgggGgGk.', '.kggggggggk.', '..kGgggggk..', '...kkkkkk...', '............'],
-    semtex: ['............', '............', '...kkkkkk...', '..kssssssk..', '..ksrrsssk..', '.kkkkkkkkkk.', '.kyyyyyyyyk.', '.kyBByyBByk.', '.kyyyyyyyyk.', '.kkkkkkkkkk.', '............', '............'],
-    knife: ['..........ks', '.........ksk', '........kssk', '.......kssk.', '......kssk..', '.....kssk...', '....kSSk....', '...kbBk.....', '..kbBk......', '.kbBk.......', 'kbBk........', 'kk..........'],
-    stun: ['....y..y....', '.....yy.....', '...kkkkkk...', '..kssssssk..', '..kSSSSSSk..', '..kssssssk..', '..kcccccck..', '..kssssssk..', '..kSSSSSSk..', '..kssssssk..', '...kkkkkk...', '............'],
-    smoke: ['...ll.......', '..lwwl.ll...', '..lwwwlwwl..', '...llwwwl...', '....kkkk....', '...kSSSSk...', '...kllllk...', '...kSSSSk...', '...kllllk...', '...kSSSSk...', '....kkkk....', '............'],
-    cay: ['............', '..kkkkkkkk..', '..kwttttwk..', '...kttttk...', '...kTttTk...', '....kttk....', '....kttk....', '...kttttk...', '..kTttttTk..', '..kkkkkkkk..', '.kssssssssk.', '..kkkkkkkk..'],
-    simit: ['............', '....kkkk....', '..kkbybbkk..', '.kbbBkkBbbk.', '.kbyk..kbyk.', 'kbBk....kbBk', 'kbyk....kbbk', '.kbBk..kbyk.', '.kbbBkkbBbk.', '..kkbbybkk..', '....kkkk....', '............'],
-    melee: ['.....kk.....', '....kssk....', '....kssk....', '....kssk....', '....kssk....', '....kSsk....', '...kkkkkk...', '..kSSSSSSk..', '....kbBk....', '....kbBk....', '....kbBk....', '.....kk.....'],
-    perk1: ['....kkkk....', '...kwwwwk...', '..kwwwwwwk..', '..kwkwwkwk..', '..kwkwwkwk..', '..kwwwwwwk..', '..kwwwwwwk..', '..kwwwwwwk..', '..kwkwwkwk..', '..kk.kk.kk..', '............', '............'],
-    perk2: ['.....kk.....', '....kyyk....', '....kyyk....', '...kyyyyk...', '...kyyyyk...', '...kkkkkk...', '...kooook...', '...kooook...', '...kooook...', '...kooook...', '...kkkkkk...', '............'],
-    perk3: ['.......kkk..', '......kyyk..', '.....kyyk...', '....kyyk....', '...kyyyykk..', '..kkkyyyyk..', '.....kyyk...', '....kyyk....', '...kyyk.....', '...kyk......', '...kk.......', '............'],
-    uav: ['.....kk.....', '.....kSk....', '.....kSk....', '.kkkkkSkkkk.', '.kSSSSsSSSk.', '.kkkkkSkkkk.', '.....kSk....', '.....kSk....', '....kkSkk...', '....kSSSk...', '....kkkkk...', '............'],
-    airstrike: ['....kkkk....', '....kSSk....', '...kkkkkk...', '...kSSSSk...', '..kSssssSk..', '..kSssssSk..', '..kSSSSSSk..', '...kSSSSk...', '....kkkk....', '...r.r.r....', '..r.r.r.r...', '............'],
-    sentry: ['............', '.......kkkkk', '...kkkkSSSSk', '..kSSSSkkkkk', '..kSssSk....', '..kSSSSk....', '...kkkk.....', '....kk......', '...kSSk.....', '..kS..Sk....', '.kS....Sk...', 'kk......kk..'],
-    heli: ['kkkkkkkkkkkk', '.....kk.....', '...kkkkk....', '..kSSSSSk...', '.kSccSSSSkkk', '.kSccSSSSSSk', '.kSSSSSSkkkk', '..kSSSSSk...', '...kkkkk....', '...k...k....', '..kkkkkkk...', '............'],
+    frag(x) {
+      IC.circle(x, 35, 9, 4.5);
+      x.lineWidth = 2.6;
+      x.strokeStyle = INK;
+      x.stroke();
+      IC.rr(x, 17, 8, 14, 8, 3);
+      IC.ink(x, '#cdb4ff');
+      IC.circle(x, 24, 29, 14);
+      IC.ink(x, '#7ed957');
+      IC.shine(x, 18, 22, 4, 2.4);
+      IC.face(x, 24, 29, 4.5);
+    },
+    semtex(x) {
+      IC.rr(x, 7, 17, 34, 22, 7);
+      IC.ink(x, '#ffd23f');
+      x.fillStyle = '#ff8fbf';
+      x.fillRect(19, 18.5, 6, 19);
+      IC.rr(x, 7, 17, 34, 22, 7);
+      IC.ink(x, null);
+      IC.circle(x, 33, 13, 4.5);
+      IC.ink(x, '#ff6b6b', 2.6);
+      IC.shine(x, 12, 22, 3.5, 2);
+      IC.face(x, 32, 28, 3.6);
+    },
+    knife(x) {
+      x.beginPath();
+      x.moveTo(25, 23);
+      x.lineTo(40, 6);
+      x.quadraticCurveTo(43, 5, 42, 9);
+      x.lineTo(30, 28);
+      x.closePath();
+      IC.ink(x, '#eef0ff');
+      x.save();
+      x.translate(20, 32);
+      x.rotate(-0.85);
+      IC.rr(x, -11, -4.5, 16, 9, 4.5);
+      IC.ink(x, '#ff8fbf');
+      x.restore();
+      IC.circle(x, 25.5, 27, 4.2);
+      IC.ink(x, '#ffd23f', 2.6);
+      IC.shine(x, 37, 10, 2.5, 1.2);
+    },
+    melee(x) {
+      ICONS.knife(x);
+    },
+    stun(x) {
+      x.lineWidth = 3;
+      x.strokeStyle = '#ffd23f';
+      x.lineCap = 'round';
+      for (const [a, b, c, d] of [[14, 9, 10, 4], [24, 7, 24, 1], [34, 9, 38, 4]]) {
+        x.beginPath();
+        x.moveTo(a, b);
+        x.lineTo(c, d);
+        x.stroke();
+      }
+      IC.rr(x, 14, 11, 20, 31, 8);
+      IC.ink(x, '#4cc3ff');
+      x.fillStyle = '#fff';
+      x.fillRect(15.5, 30, 17, 5);
+      IC.rr(x, 14, 11, 20, 31, 8);
+      IC.ink(x, null);
+      IC.shine(x, 19, 16, 2.4, 3.6);
+      IC.face(x, 24, 22, 3.8);
+    },
+    smoke(x) {
+      for (const [cx, cy, r] of [[16, 13, 7], [26, 9, 8], [35, 14, 6.5]]) {
+        IC.circle(x, cx, cy, r);
+        IC.ink(x, '#fff', 2.6);
+      }
+      IC.rr(x, 15, 20, 18, 24, 7);
+      IC.ink(x, '#cdb4ff');
+      x.fillStyle = '#9b5de5';
+      x.fillRect(16.5, 28, 15, 4);
+      IC.rr(x, 15, 20, 18, 24, 7);
+      IC.ink(x, null);
+      IC.shine(x, 20, 25, 2.2, 3);
+    },
+    cay(x) {
+      // ince belli çay bardağı + tabak + buhar
+      x.lineWidth = 2.4;
+      x.strokeStyle = '#c9b8e0';
+      x.lineCap = 'round';
+      for (const sx of [19, 28]) {
+        x.beginPath();
+        x.moveTo(sx, 9);
+        x.quadraticCurveTo(sx - 3, 6, sx, 3);
+        x.stroke();
+      }
+      x.beginPath();
+      x.ellipse(24, 41, 17, 4.5, 0, 0, Math.PI * 2);
+      IC.ink(x, '#ff8fbf');
+      x.beginPath();
+      x.moveTo(14, 12);
+      x.lineTo(34, 12);
+      x.quadraticCurveTo(26, 25, 32, 38);
+      x.lineTo(16, 38);
+      x.quadraticCurveTo(22, 25, 14, 12);
+      x.closePath();
+      x.save();
+      x.clip();
+      x.fillStyle = 'rgba(255,255,255,0.85)';
+      x.fillRect(10, 8, 30, 34);
+      x.fillStyle = '#e8742a';
+      x.fillRect(10, 17, 30, 25);
+      x.fillStyle = '#ffb36b';
+      x.fillRect(10, 17, 30, 3);
+      x.restore();
+      IC.ink(x, null);
+      IC.shine(x, 19.5, 24, 1.4, 5);
+    },
+    simit(x) {
+      x.beginPath();
+      x.arc(24, 25, 17, 0, Math.PI * 2);
+      x.arc(24, 25, 7, 0, Math.PI * 2, true);
+      IC.ink(x, '#e89a4a');
+      x.beginPath();
+      x.arc(24, 23, 13, Math.PI * 1.05, Math.PI * 1.6);
+      x.lineWidth = 3;
+      x.strokeStyle = 'rgba(255,255,255,0.5)';
+      x.lineCap = 'round';
+      x.stroke();
+      x.fillStyle = '#fff3c4';
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2 + 0.3;
+        const r = k % 2 ? 10.5 : 14;
+        x.beginPath();
+        x.ellipse(24 + Math.cos(a) * r, 25 + Math.sin(a) * r, 1.6, 1, a, 0, Math.PI * 2);
+        x.fill();
+      }
+    },
+    perk1(x) {
+      // hayalet
+      x.beginPath();
+      x.moveTo(11, 40);
+      x.lineTo(11, 21);
+      x.arc(24, 21, 13, Math.PI, 0);
+      x.lineTo(37, 40);
+      x.quadraticCurveTo(34, 36, 31, 40);
+      x.quadraticCurveTo(27.5, 36, 24, 40);
+      x.quadraticCurveTo(20.5, 36, 17, 40);
+      x.quadraticCurveTo(14, 36, 11, 40);
+      x.closePath();
+      IC.ink(x, '#fff');
+      IC.shine(x, 17, 15, 3, 2);
+      x.fillStyle = 'rgba(205,180,255,0.5)';
+      x.fillRect(12.5, 33, 23, 3);
+      IC.face(x, 24, 22, 4.5);
+    },
+    perk2(x) {
+      // enerji içeceği kutusu
+      IC.rr(x, 15, 8, 18, 34, 6);
+      IC.ink(x, '#ffb347');
+      x.fillStyle = '#fff';
+      x.fillRect(16.5, 15, 15, 3);
+      IC.rr(x, 15, 8, 18, 34, 6);
+      IC.ink(x, null);
+      IC.bolt(x, 24, 29, 0.85, '#ffd23f');
+      IC.shine(x, 19.5, 13, 1.6, 3);
+    },
+    perk3(x) {
+      IC.bolt(x, 24, 24, 1.9, '#ffd23f');
+      IC.shine(x, 24, 14, 2.4, 1.4);
+    },
+    uav(x) {
+      // minik uçak
+      x.beginPath();
+      x.moveTo(24, 6);
+      x.quadraticCurveTo(30, 8, 29, 22);
+      x.lineTo(43, 27);
+      x.lineTo(43, 32);
+      x.lineTo(28, 30);
+      x.lineTo(27, 37);
+      x.lineTo(32, 41);
+      x.lineTo(16, 41);
+      x.lineTo(21, 37);
+      x.lineTo(20, 30);
+      x.lineTo(5, 32);
+      x.lineTo(5, 27);
+      x.lineTo(19, 22);
+      x.quadraticCurveTo(18, 8, 24, 6);
+      x.closePath();
+      IC.ink(x, '#4cc3ff');
+      IC.circle(x, 24, 14, 3.4);
+      IC.ink(x, '#fff', 2);
+      IC.shine(x, 21, 20, 1.4, 3);
+    },
+    airstrike(x) {
+      // yuvarlak bomba, kanatçıklar
+      x.beginPath();
+      x.moveTo(17, 8);
+      x.lineTo(31, 8);
+      x.lineTo(28, 15);
+      x.lineTo(20, 15);
+      x.closePath();
+      IC.ink(x, '#cdb4ff', 2.6);
+      x.beginPath();
+      x.ellipse(24, 28, 11, 15, 0, 0, Math.PI * 2);
+      IC.ink(x, '#ff6b6b');
+      x.fillStyle = '#fff';
+      x.fillRect(13.5, 25, 21, 4);
+      x.beginPath();
+      x.ellipse(24, 28, 11, 15, 0, 0, Math.PI * 2);
+      IC.ink(x, null);
+      IC.shine(x, 19, 21, 2.4, 4);
+    },
+    sentry(x) {
+      x.lineCap = 'round';
+      x.lineWidth = 4;
+      x.strokeStyle = INK;
+      for (const [a, b] of [[12, 44], [36, 44], [24, 44]]) {
+        x.beginPath();
+        x.moveTo(24, 28);
+        x.lineTo(a, b);
+        x.stroke();
+      }
+      IC.rr(x, 26, 13, 18, 7, 3.5);
+      IC.ink(x, '#cdb4ff', 2.6);
+      IC.circle(x, 22, 20, 11);
+      IC.ink(x, '#3ddc97');
+      IC.shine(x, 18, 15, 3, 2);
+      IC.circle(x, 22, 20, 4);
+      IC.ink(x, '#fff', 2.2);
+      x.fillStyle = INK;
+      IC.circle(x, 23, 20, 1.8);
+      x.fill();
+    },
+    heli(x) {
+      x.lineCap = 'round';
+      x.lineWidth = 3.4;
+      x.strokeStyle = INK;
+      x.beginPath();
+      x.moveTo(4, 8);
+      x.lineTo(44, 8);
+      x.moveTo(22, 8);
+      x.lineTo(22, 15);
+      x.moveTo(30, 27);
+      x.lineTo(44, 23);
+      x.moveTo(12, 41);
+      x.lineTo(34, 41);
+      x.stroke();
+      IC.circle(x, 44, 23, 3.4);
+      IC.ink(x, '#ffd23f', 2.2);
+      x.beginPath();
+      x.ellipse(21, 27, 15, 11, 0, 0, Math.PI * 2);
+      IC.ink(x, '#ff8fbf');
+      x.beginPath();
+      x.ellipse(14, 25, 6, 5.5, 0, 0, Math.PI * 2);
+      IC.ink(x, '#bfe9ff', 2.4);
+      IC.shine(x, 13, 23, 2, 1.3);
+      IC.shine(x, 24, 20, 4, 2);
+    },
   };
   const iconCache = {};
   G.itemIcon = function (kind) {
     if (iconCache[kind] != null) return iconCache[kind];
-    const rows = ICONS[kind];
-    if (!rows) return (iconCache[kind] = '');
-    const S = 3;
+    const draw = ICONS[kind];
+    if (!draw) return (iconCache[kind] = '');
     const c = document.createElement('canvas');
-    c.width = c.height = 12 * S;
+    c.width = c.height = 48;
     const x = c.getContext('2d');
-    rows.forEach((row, j) => {
-      for (let i = 0; i < 12; i++) {
-        const col = PAL[row[i]];
-        if (!col) continue;
-        x.fillStyle = col;
-        x.fillRect(i * S, j * S, S, S);
-      }
-    });
+    x.lineJoin = 'round';
+    x.lineCap = 'round';
+    try {
+      draw(x);
+    } catch (e) {
+      return (iconCache[kind] = '');
+    }
     return (iconCache[kind] = c.toDataURL('image/png'));
   };
   // Öldürme akışı için silah simgesi: kimlik ya da adla bulunur
@@ -144,9 +439,9 @@
   // ---------------- Maç başlangıcı ----------------
   H.startMatch = function (m) {
     H.match = m;
-    H.radioQ = [];
-    H.radioBusy = false;
-    clearTimeout(H._radioT);
+    // Not: telsiz ve görev metni burada sıfırlanmaz; hikâye kurulumu bunları
+    // startMatch'ten ÖNCE ayarlar. Temizlik H.hide() (maç kapanışı) içinde.
+    H.radioQ = H.radioQ || [];
     H.boss = null;
     $('hud').hidden = false;
     $('h-feed').innerHTML = '';
@@ -158,8 +453,6 @@
     H.strikes = [];
     $('h-death').hidden = true;
     $('h-board').hidden = true;
-    $('h-objective').hidden = true;
-    $('h-radio').hidden = true;
     $('h-boss').hidden = true;
     $('h-bigtimer').hidden = true;
     const zm = m.mode === 'zm' || (m.mission && m.mission.zombie);
@@ -212,6 +505,19 @@
 
   H.hide = function () {
     $('hud').hidden = true;
+    // maç kapanışı: telsiz kuyruğu ve görev metni temizlenir
+    H.radioQ = [];
+    H.radioBusy = false;
+    clearTimeout(H._radioT);
+    const ob = $('h-objective'), ra = $('h-radio');
+    if (ob) ob.hidden = true;
+    if (ra) ra.hidden = true;
+    // önceki maçın büyük yazısı / uyarısı yeni maça taşınmasın
+    clearTimeout(H._bigT);
+    clearTimeout(H._warnT);
+    const bg = $('h-big'), wn = $('h-warn');
+    if (bg) bg.hidden = true;
+    if (wn) wn.hidden = true;
   };
 
   // ---------------- Mini harita ----------------
@@ -225,11 +531,11 @@
       for (let x = 0; x < world.w; x++) {
         const ch = world.rows[z][x];
         let col = null;
-        if (ch === '#' || ch === 'H' || ch === '=' || ch === 'x') col = '#0b0f10';
-        else if ('cCKwhvbTLr'.includes(ch)) col = '#2c3a3c';
-        else if ('1234'.includes(ch)) col = '#6b4a20';
-        else if (world.indoor[x + z * world.w] || ch === 'd') col = '#5a6a6c';
-        else col = '#7c8c8a';
+        if (ch === '#' || ch === 'H' || ch === '=' || ch === 'x') col = '#7d6a9a';
+        else if ('cCKwhvbTLr'.includes(ch)) col = '#b9a6d6';
+        else if ('1234'.includes(ch)) col = '#ffb347';
+        else if (world.indoor[x + z * world.w] || ch === 'd') col = '#ffe4c4';
+        else col = '#bfeaa0';
         ctx.fillStyle = col;
         ctx.fillRect(x * S, z * S, S, S);
       }
@@ -242,43 +548,53 @@
     const W = H.mini.width;
     const p = m.player;
     const scale = H.miniScale * 1.25;
+    const R = W / 2 - 5;
     ctx.save();
     ctx.clearRect(0, 0, W, W);
-    ctx.imageSmoothingEnabled = false;
     ctx.beginPath();
-    ctx.arc(W / 2, W / 2, W / 2 - 2, 0, Math.PI * 2);
+    ctx.arc(W / 2, W / 2, R, 0, Math.PI * 2);
     ctx.clip();
-    ctx.fillStyle = 'rgba(10,14,16,0.75)';
+    ctx.fillStyle = 'rgba(255,250,243,0.92)';
     ctx.fillRect(0, 0, W, W);
     ctx.translate(W / 2, W / 2);
     ctx.rotate(p.yaw);
     ctx.scale(scale, scale);
     ctx.translate(-p.pos.x, -p.pos.z);
-    ctx.globalAlpha = 0.9;
+    ctx.globalAlpha = 0.95;
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(H.miniMap, 0, 0, H.miniMap.width / H.miniScale, H.miniMap.height / H.miniScale);
     ctx.globalAlpha = 1;
+    const lw = 1.6 / scale;
+    // yuvarlak, konturlu nokta
     const dot = (x, z, r, col) => {
+      ctx.beginPath();
+      ctx.arc(x, z, r, 0, Math.PI * 2);
       ctx.fillStyle = col;
-      ctx.fillRect(x - r, z - r, r * 2, r * 2);
+      ctx.fill();
+      ctx.lineWidth = lw;
+      ctx.strokeStyle = '#3b2a4a';
+      ctx.stroke();
     };
     // bayraklar
     for (const f of m.flags) {
-      dot(f.pos.x, f.pos.z, 2.6, f.owner === p.team ? '#4cc3ff' : f.owner === -1 ? '#dddddd' : '#ff4d3d');
+      dot(f.pos.x, f.pos.z, 2.8, f.owner === p.team ? '#4cc3ff' : f.owner === -1 ? '#ffffff' : '#ff6b6b');
     }
     // hava saldırısı işaretleri
     for (const s of H.strikes || []) {
       if (G.time > s.until) continue;
-      ctx.strokeStyle = '#ff3020';
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#ff6b6b';
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([2, 1.5]);
       ctx.beginPath();
       ctx.arc(s.pos.x, s.pos.z, 7, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.setLineDash([]);
     }
     const uav = G.streaks.uavActive(p.team === 0 || p.team === 1 ? p.team : 0) && m.streaksEnabled;
     for (const c of m.chars) {
       if (c === p || !c.alive) continue;
       if (c.kind === 'zombie' || c.kind === 'dog') {
-        if (Math.hypot(c.pos.x - p.pos.x, c.pos.z - p.pos.z) < 14 && G.time - c.lastHurt < 2) dot(c.pos.x, c.pos.z, 1.2, '#ff4d3d');
+        if (Math.hypot(c.pos.x - p.pos.x, c.pos.z - p.pos.z) < 14 && G.time - c.lastHurt < 2) dot(c.pos.x, c.pos.z, 1.3, '#9b5de5');
         continue;
       }
       const friend = !m.canHurt(p, c);
@@ -288,39 +604,73 @@
         ctx.rotate(-c.yaw);
         ctx.fillStyle = '#4cc3ff';
         ctx.beginPath();
-        ctx.moveTo(0, -2.2);
-        ctx.lineTo(1.6, 1.6);
-        ctx.lineTo(-1.6, 1.6);
+        ctx.moveTo(0, -2.4);
+        ctx.lineTo(1.8, 1.7);
+        ctx.lineTo(-1.8, 1.7);
+        ctx.closePath();
         ctx.fill();
+        ctx.lineWidth = lw;
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#3b2a4a';
+        ctx.stroke();
         ctx.restore();
       } else if (uav || G.time < (c.spotted || 0)) {
-        dot(c.pos.x, c.pos.z, 1.5, '#ff4d3d');
+        dot(c.pos.x, c.pos.z, 1.6, '#ff6b6b');
       }
     }
     for (const e of G.streaks.ents) {
       if (!e.isEnt || !e.alive) continue;
-      dot(e.pos.x, e.pos.z, 1.6, m.canHurt(p, e) ? '#ff9a3d' : '#9fdcff');
+      dot(e.pos.x, e.pos.z, 1.7, m.canHurt(p, e) ? '#ffb347' : '#9fdcff');
     }
-    for (const mk of H.markers) dot(mk.pos.x, mk.pos.z, 2.2, '#ffd23a');
+    for (const mk of H.markers) dot(mk.pos.x, mk.pos.z, 2.4, '#ffd23f');
     ctx.restore();
-    // oyuncu oku
-    ctx.fillStyle = '#ffffff';
+    // oyuncu oku (güneş sarısı, konturlu)
     ctx.beginPath();
-    ctx.moveTo(W / 2, W / 2 - 7);
-    ctx.lineTo(W / 2 + 5, W / 2 + 5);
-    ctx.lineTo(W / 2, W / 2 + 2);
-    ctx.lineTo(W / 2 - 5, W / 2 + 5);
+    ctx.moveTo(W / 2, W / 2 - 9);
+    ctx.lineTo(W / 2 + 7, W / 2 + 7);
+    ctx.lineTo(W / 2, W / 2 + 3);
+    ctx.lineTo(W / 2 - 7, W / 2 + 7);
+    ctx.closePath();
+    ctx.fillStyle = '#ffd23f';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(W / 2, W / 2, W / 2 - 2, 0, Math.PI * 2);
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#3b2a4a';
     ctx.stroke();
+    // çerçeve: beyaz iç halka + mürdüm dış kontur
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(W / 2, W / 2, R - 1.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = '#3b2a4a';
+    ctx.beginPath();
+    ctx.arc(W / 2, W / 2, R + 1.5, 0, Math.PI * 2);
+    ctx.stroke();
+    // kuzey işareti
+    const na = -p.yaw - Math.PI / 2;
+    const nx = W / 2 + Math.cos(na) * (R - 1), ny = W / 2 + Math.sin(na) * (R - 1);
+    ctx.beginPath();
+    ctx.arc(nx, ny, 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff6fa8';
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 12px "Baloo 2", "Nunito", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('K', nx, ny + 1);
     if (uav) {
-      ctx.fillStyle = '#ffd23a';
-      ctx.font = 'bold 14px "Pixelify Sans", sans-serif';
-      ctx.fillText('İHA', 10, 20);
+      ctx.font = '800 14px "Baloo 2", "Nunito", sans-serif';
+      ctx.lineWidth = 4;
+      ctx.strokeText('İHA', W / 2, 30);
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillText('İHA', W / 2, 30);
     }
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
   }
 
   // ---------------- Pusula ----------------
@@ -328,52 +678,91 @@
   function bearing(p, x, z) {
     return ((Math.atan2(x - p.pos.x, -(z - p.pos.z)) * 180) / Math.PI + 360) % 360;
   }
+  function pill(ctx, x, y, w, h) {
+    const r = h / 2;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arc(x + w - r, y + r, r, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(x + r, y + h);
+    ctx.arc(x + r, y + r, r, Math.PI / 2, (Math.PI * 3) / 2);
+    ctx.closePath();
+  }
   function drawCompass(m) {
     const ctx = H.compassCtx;
-    const W = H.compass.width, Hh = H.compass.height;
+    const SC = H.compass.width / 460;
+    const W = 460, Hh = 34;
     const p = m.player;
     const hdg = ((((-p.yaw * 180) / Math.PI) % 360) + 360) % 360;
-    const ppd = W / 180;
-    ctx.clearRect(0, 0, W, Hh);
-    const grad = ctx.createLinearGradient(0, 0, W, 0);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(0.2, 'rgba(0,0,0,0.45)');
-    grad.addColorStop(0.8, 'rgba(0,0,0,0.45)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, Hh);
+    const ppd = (W - 40) / 180;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, H.compass.width, H.compass.height);
+    ctx.setTransform(SC, 0, 0, SC, 0, 0);
+    // krem hap zemin
+    pill(ctx, 2, 4, W - 4, Hh - 8);
+    ctx.fillStyle = 'rgba(255,250,243,0.9)';
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#3b2a4a';
+    ctx.stroke();
+    ctx.save();
+    pill(ctx, 3, 5, W - 6, Hh - 10);
+    ctx.clip();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const start = Math.ceil((hdg - 90) / 15) * 15;
     for (let a = start; a <= hdg + 90; a += 15) {
-      const x = Math.round(W / 2 + (a - hdg) * ppd);
-      const fade = 1 - Math.abs(a - hdg) / 92;
+      const x = W / 2 + (a - hdg) * ppd;
+      const fade = Math.max(0, 1 - Math.abs(a - hdg) / 95);
       const n = ((a % 360) + 360) % 360;
       if (n % 45 === 0) {
-        ctx.fillStyle = n === 0 ? `rgba(255,178,56,${fade})` : `rgba(240,244,240,${fade})`;
-        ctx.font = '12px "Silkscreen", monospace';
-        ctx.fillText(DIRS8[n / 45], x, 14);
+        ctx.globalAlpha = 0.35 + fade * 0.65;
+        ctx.fillStyle = n === 0 ? '#ff6fa8' : '#3b2a4a';
+        ctx.font = n % 90 === 0 ? '800 16px "Baloo 2", "Nunito", sans-serif' : '800 12px "Baloo 2", "Nunito", sans-serif';
+        ctx.fillText(DIRS8[n / 45], x, Hh / 2 + 1);
       } else {
-        ctx.fillStyle = `rgba(240,244,240,${fade * 0.6})`;
-        ctx.fillRect(x, 10, 1, 7);
+        ctx.globalAlpha = 0.25 + fade * 0.5;
+        ctx.fillStyle = '#8a789a';
+        ctx.beginPath();
+        ctx.arc(x, Hh / 2, 2, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
+    ctx.globalAlpha = 1;
+    ctx.restore();
     const mark = (b, col, label) => {
       let d = ((b - hdg + 540) % 360) - 180;
-      const edge = Math.abs(d) > 88;
       d = U.clamp(d, -88, 88);
-      const x = Math.round(W / 2 + d * ppd);
+      const x = W / 2 + d * ppd;
+      ctx.beginPath();
+      ctx.arc(x, Hh - 4, label ? 6.5 : 4.5, 0, Math.PI * 2);
       ctx.fillStyle = col;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#3b2a4a';
+      ctx.stroke();
       if (label) {
-        ctx.font = '10px "Silkscreen", monospace';
-        ctx.fillText(label, x, 5);
+        ctx.fillStyle = '#3b2a4a';
+        ctx.font = '800 10px "Baloo 2", "Nunito", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x, Hh - 3.5);
       }
-      ctx.fillRect(x - 2, edge ? 20 : 21, 4, 4);
     };
-    for (const f of m.flags) mark(bearing(p, f.pos.x, f.pos.z), f.owner === p.team ? '#4cc3ff' : f.owner === -1 ? '#dddddd' : '#ff4d3d', f.id);
-    for (const mk of H.markers) mark(bearing(p, mk.pos.x, mk.pos.z), '#ffd23a', '');
-    ctx.fillStyle = '#ffb238';
-    ctx.fillRect(W / 2 - 1, 20, 2, 6);
+    for (const f of m.flags) mark(bearing(p, f.pos.x, f.pos.z), f.owner === p.team ? '#4cc3ff' : f.owner === -1 ? '#ffffff' : '#ff6b6b', f.id);
+    for (const mk of H.markers) mark(bearing(p, mk.pos.x, mk.pos.z), '#ffd23f', '');
+    // orta işaret: minik pembe üçgen
+    ctx.beginPath();
+    ctx.moveTo(W / 2 - 6, 1);
+    ctx.lineTo(W / 2 + 6, 1);
+    ctx.lineTo(W / 2, 9);
+    ctx.closePath();
+    ctx.fillStyle = '#ff6fa8';
+    ctx.fill();
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#3b2a4a';
+    ctx.stroke();
   }
 
   // ---------------- Olaylar ----------------
@@ -402,7 +791,7 @@
     d.innerHTML = `<b>${escapeHtml(text)}</b>${pts ? `<span>+${pts}</span>` : ''}`;
     const box = $('h-medals');
     box.appendChild(d);
-    while (box.children.length > 4) box.firstChild.remove();
+    while (box.children.length > 3) box.firstChild.remove();
     setTimeout(() => d.remove(), 2600);
     if (pts) G.audio.play('medal', { priority: true });
   };
@@ -466,7 +855,7 @@
     const vc = e.victim === (player && player.name) ? 'me' : isFriend(e.vteam) ? 'fr' : 'en';
     const ic = feedIcon(e.weaponId, e.weapon);
     const wpn = ic ? `<img alt="${escapeHtml(e.weapon || '')}" title="${escapeHtml(e.weapon || '')}" src="${ic}">` : `<i>${escapeHtml(e.weapon || '')}</i>`;
-    d.innerHTML = `${e.killer ? `<b class="${kc}">${escapeHtml(e.killer)}</b>` : ''}${wpn}${e.head ? '<span class="wb">⌖</span>' : ''}<b class="${vc}">${escapeHtml(e.victim)}</b>`;
+    d.innerHTML = `${e.killer ? `<b class="${kc}">${escapeHtml(e.killer)}</b>` : ''}${wpn}${e.head ? '<span class="wb" title="Kafadan">★</span>' : ''}<b class="${vc}">${escapeHtml(e.victim)}</b>`;
     box.prepend(d);
     while (box.children.length > 6) box.lastChild.remove();
     setTimeout(() => d.remove(), 7000);
