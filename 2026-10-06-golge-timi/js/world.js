@@ -91,6 +91,24 @@
       this._idx = this._idx || [];
       this._idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
     }
+    // Herhangi bir geometriyi dönüştürüp kovaya ekle
+    addGeo(geo, matrix, color, uvScale) {
+      const g = geo.index ? geo.toNonIndexed() : geo.clone();
+      g.applyMatrix4(matrix);
+      const pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv;
+      const col = new THREE.Color(color != null ? color : 0xffffff);
+      const base = this.p.length / 3;
+      this._idx = this._idx || [];
+      for (let i = 0; i < pos.count; i++) {
+        this.p.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+        this.n.push(nor.getX(i), nor.getY(i), nor.getZ(i));
+        if (uv) this.uv.push(uv.getX(i) * (uvScale || 1), uv.getY(i) * (uvScale || 1));
+        else this.uv.push(0, 0);
+        this.c.push(col.r, col.g, col.b);
+        this._idx.push(base + i);
+      }
+      g.dispose();
+    }
     mesh(material, shadows) {
       if (!this.p.length) return null;
       const g = new THREE.BufferGeometry();
@@ -364,6 +382,8 @@
 
       // Zombi kapıları
       if (this.def.kind === 'zm') this.buildDoors(B);
+      // Dekor, tabelalar, cephe ayrıntıları
+      if (G.Props) G.Props.dress(this, B);
 
       // Malzemeler
       const mats = {
@@ -623,7 +643,29 @@
       if (sea) {
         const water = new THREE.Mesh(
           new THREE.PlaneGeometry(gx1 - gx0, 400),
-          new THREE.MeshStandardMaterial({ color: 0x1d3f55, roughness: 0.25, metalness: 0.4, transparent: true, opacity: 0.95 })
+          new THREE.ShaderMaterial({
+            uniforms: {
+              time: { value: 0 },
+              deep: { value: new THREE.Color(0x14303f) },
+              shallow: { value: new THREE.Color(0x2e6a7a) },
+              glint: { value: new THREE.Color(T.sun) },
+              fogColor: { value: new THREE.Color(T.fog) },
+              fogFar: { value: T.fogFar },
+            },
+            vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+            fragmentShader: [
+              'uniform float time; uniform vec3 deep; uniform vec3 shallow; uniform vec3 glint; uniform vec3 fogColor; uniform float fogFar; varying vec3 vW;',
+              'void main(){',
+              ' float w = sin(vW.x * 0.35 + time * 1.3) * 0.5 + sin(vW.z * 0.6 - time * 1.7 + vW.x * 0.2) * 0.5 + sin((vW.x + vW.z) * 1.3 + time * 2.4) * 0.25;',
+              ' vec3 c = mix(deep, shallow, 0.5 + 0.3 * w);',
+              ' float g = step(1.05, w + sin(vW.x * 2.7 - time * 3.0) * 0.4);',
+              ' c += glint * g * 0.35;',
+              ' float d = length(vW - cameraPosition);',
+              ' c = mix(c, fogColor, clamp(d / fogFar, 0.0, 1.0) * 0.85);',
+              ' gl_FragColor = vec4(c, 1.0);',
+              '}',
+            ].join('\n'),
+          })
         );
         water.rotation.x = -Math.PI / 2;
         water.position.set((gx0 + gx1) / 2, -0.9, this.sizeZ + 200);
@@ -646,16 +688,33 @@
           sunDir: { value: sd },
           sunCol: { value: new THREE.Color(T.sun) },
           night: { value: T.night ? 1 : 0 },
+          time: { value: 0 },
+          cloudCol: { value: new THREE.Color(T.night ? 0x2a3040 : T.sunIntensity < 1.4 && !T.night && T.skyHorizon === 0xf2a65a ? 0xf0b8a0 : 0xf4f6fa) },
+          cloudAmt: { value: T.clouds != null ? T.clouds : 0.5 },
         },
         vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
         fragmentShader: [
           'uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; uniform vec3 sunDir; uniform vec3 sunCol; uniform float night;',
+          'uniform float time; uniform vec3 cloudCol; uniform float cloudAmt;',
           'varying vec3 vDir;',
+          'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+          'float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
+          ' return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }',
+          'float fbm(vec2 p){ float v = 0.0; float a = 0.5; for (int i = 0; i < 5; i++){ v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }',
           'void main(){',
-          ' float y = vDir.y;',
+          ' vec3 d = normalize(vDir);',
+          ' float y = d.y;',
           ' vec3 c = y > 0.0 ? mix(horizon, top, pow(clamp(y,0.0,1.0), 0.55)) : mix(horizon, bottom, pow(clamp(-y,0.0,1.0), 0.4));',
-          ' float s = max(dot(normalize(vDir), normalize(sunDir)), 0.0);',
+          ' float s = max(dot(d, normalize(sunDir)), 0.0);',
           ' c += sunCol * (pow(s, 600.0) * (night > 0.5 ? 0.9 : 2.5) + pow(s, 12.0) * (night > 0.5 ? 0.05 : 0.35));',
+          ' if (y > 0.0) {',
+          '  vec2 uv = d.xz / (y + 0.12) * 1.4 + vec2(time * 0.012, time * 0.005);',
+          '  float n = fbm(uv);',
+          '  float cl = smoothstep(0.62 - cloudAmt * 0.3, 0.9, n) * smoothstep(0.0, 0.22, y);',
+          '  float shade = fbm(uv * 2.3 + 4.0);',
+          '  vec3 cc = mix(cloudCol, cloudCol * 0.55, shade) + sunCol * pow(s, 6.0) * 0.35;',
+          '  c = mix(c, cc, cl * 0.9);',
+          ' }',
           ' gl_FragColor = vec4(c, 1.0);',
           '}',
         ].join('\n'),
@@ -875,7 +934,11 @@
         p.needsUpdate = true;
         this.rain.position.set(camPos.x, 0, camPos.z);
       }
-      if (this.water) this.water.position.y = -0.9 + Math.sin(G.time * 0.7) * 0.06;
+      if (this.water) {
+        this.water.position.y = -0.9 + Math.sin(G.time * 0.7) * 0.06;
+        this.water.material.uniforms.time.value += dt;
+      }
+      if (this.sky) this.sky.material.uniforms.time.value += dt;
       if (this.muzzleLight.intensity > 0) this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 60);
       if (this.boomLight.intensity > 0) this.boomLight.intensity = Math.max(0, this.boomLight.intensity - dt * 14);
       for (let i = this.updaters.length - 1; i >= 0; i--) if (!this.updaters[i](dt)) this.updaters.splice(i, 1);

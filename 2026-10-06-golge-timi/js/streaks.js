@@ -45,6 +45,7 @@
     if (!p || !p.alive || !G.game.streaksEnabled) return;
     if (!S.inventory[i]) return;
     const def = G.STREAKS[i];
+    if (def.id !== 'airstrike') G.progress.stat('streakUse', 1);
     if (def.id === 'uav') {
       S.inventory[i]--;
       S.callUAV(p.team, 'player');
@@ -103,6 +104,7 @@
     if (hit) S.marker.position.set(hit.x, 0.1, hit.z);
     if (G.input.hit('fire') && hit) {
       S.inventory[S.targeting.i]--;
+      G.progress.stat('streakUse', 1);
       S.callAirstrike(p, new THREE.Vector3(hit.x, 0, hit.z), p.yaw);
       S.targeting = null;
       S.marker.visible = false;

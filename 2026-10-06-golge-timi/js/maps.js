@@ -127,7 +127,7 @@
         sun: 0xffc48a, sunIntensity: 1.35, sunDir: [-0.55, 0.42, 0.35],
         hemiSky: 0xa9b8d8, hemiGround: 0x5a4636, hemiIntensity: 0.62,
         ground: 'asfalt', wall: 'beton', building: 'tugla', indoor: 'karo',
-        exposure: 1.05, sea: 'south', decor: 'cranes',
+        exposure: 1.05, sea: 'south', decor: 'cranes', clouds: 0.65, grade: { sat: 1.15, con: 1.08, tint: 0xfff0e0, lift: 0x0a0814, bloom: 0.7 },
       },
     };
   }
@@ -198,7 +198,7 @@
         sun: 0xfff1d6, sunIntensity: 1.55, sunDir: [0.35, 0.85, 0.3],
         hemiSky: 0xcfe0f5, hemiGround: 0x9a7a52, hemiIntensity: 0.7,
         ground: 'kum', wall: 'siva', building: 'siva', indoor: 'karo',
-        exposure: 1.0, decor: 'dunes', palms: true,
+        exposure: 1.0, decor: 'dunes', palms: true, clouds: 0.25, grade: { sat: 1.12, con: 1.1, tint: 0xfff4e4, lift: 0x080604, bloom: 0.55 },
       },
     };
   }
@@ -262,7 +262,7 @@
         sun: 0x9fb8ff, sunIntensity: 0.55, sunDir: [0.3, 0.8, -0.4],
         hemiSky: 0x50627f, hemiGround: 0x1a1d22, hemiIntensity: 0.55,
         ground: 'asfalt', wall: 'beton', building: 'metal', indoor: 'karo',
-        exposure: 1.25, night: true, stars: true, rain: true, lampLights: true,
+        exposure: 1.25, night: true, stars: true, rain: true, lampLights: true, clouds: 0.85, grade: { sat: 0.95, con: 1.12, tint: 0xe4ecff, lift: 0x060a14, bloom: 0.9 },
       },
     };
   }
@@ -351,7 +351,7 @@
         sun: 0x8f9cff, sunIntensity: 0.35, sunDir: [0.4, 0.8, 0.2],
         hemiSky: 0x5a4a6a, hemiGround: 0x1a1414, hemiIntensity: 0.5,
         ground: 'toprak', wall: 'beton', building: 'labduvar', indoor: 'labzemin',
-        exposure: 1.3, night: true, stars: true, flashlight: true, zombieLights: true,
+        exposure: 1.3, night: true, stars: true, flashlight: true, zombieLights: true, clouds: 0.55, grade: { sat: 0.9, con: 1.15, tint: 0xf4e8ff, lift: 0x0e0614, bloom: 0.95 },
       },
     };
   }
@@ -401,7 +401,7 @@
         sun: 0xfff5e0, sunIntensity: 1.4, sunDir: [-0.3, 0.8, 0.4],
         hemiSky: 0xd4e4f4, hemiGround: 0x5e6b45, hemiIntensity: 0.7,
         ground: 'cim', wall: 'beton', building: 'beton', indoor: 'karo',
-        exposure: 1.0, decor: 'hills',
+        exposure: 1.0, decor: 'hills', clouds: 0.5, grade: { sat: 1.12, con: 1.05, tint: 0xffffff, lift: 0x000000, bloom: 0.45 },
       },
     };
   }

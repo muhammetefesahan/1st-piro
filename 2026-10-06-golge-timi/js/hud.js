@@ -16,6 +16,8 @@
   <div id="h-hit"><i></i><i></i><i></i><i></i></div>
   <div id="h-dmg"></div>
   <div id="h-markers"></div>
+  <canvas id="h-compass" width="460" height="26"></canvas>
+  <div id="h-lowammo" hidden></div>
   <div id="h-top">
     <div id="h-score" class="panel">
       <div class="sc sc-a"><span id="h-sa">0</span><em>GÖLGE</em></div>
@@ -46,9 +48,11 @@
   <div id="h-right">
     <div id="h-streaks"></div>
     <div id="h-weapon">
+      <img id="h-wicon" alt="">
       <div id="h-wname">AR-24</div>
       <div id="h-ammo"><span id="h-mag">30</span><span id="h-res">/ 150</span></div>
-      <div id="h-equip"><span id="h-lethal">●1</span><span id="h-tac">◆1</span><span id="h-cay">☕1</span><span id="h-simit">◯1</span></div>
+      <div id="h-pips"></div>
+      <div id="h-equip"><span id="h-lethal"><img alt=""><b>1</b></span><span id="h-tac"><img alt=""><b>1</b></span><span id="h-cay"><img alt=""><b>1</b></span><span id="h-simit"><img alt=""><b>1</b></span></div>
     </div>
   </div>
   <div id="h-nade" hidden>!</div>
@@ -69,7 +73,73 @@
     H.cross = $('h-cross');
     H.hit = $('h-hit');
     H.hitT = 0;
+    H.compass = $('h-compass');
+    H.compassCtx = H.compass.getContext('2d');
+    $('h-cay').querySelector('img').src = G.itemIcon('cay');
+    $('h-simit').querySelector('img').src = G.itemIcon('simit');
   };
+
+  // ---------------- Piksel ikonlar (ekipman, seriler, yetenekler) ----------------
+  const PAL = {
+    k: '#0a0d0e', g: '#6f8a42', G: '#3f5524', s: '#d2d9dc', S: '#7c868a', r: '#e8432f', y: '#ffcc4d', o: '#ff9a3d',
+    b: '#9a6630', B: '#5c3a1a', w: '#f4f2ea', t: '#d0461c', T: '#7a2410', c: '#7be0c3', l: '#a6aeb0',
+  };
+  const ICONS = {
+    frag: ['.....ss.....', '....s..s....', '....kkkk....', '...kSSSSk...', '..kgggggGk..', '.kgGgggGgGk.', '.kggggggggk.', '.kgGgggGgGk.', '.kggggggggk.', '..kGgggggk..', '...kkkkkk...', '............'],
+    semtex: ['............', '............', '...kkkkkk...', '..kssssssk..', '..ksrrsssk..', '.kkkkkkkkkk.', '.kyyyyyyyyk.', '.kyBByyBByk.', '.kyyyyyyyyk.', '.kkkkkkkkkk.', '............', '............'],
+    knife: ['..........ks', '.........ksk', '........kssk', '.......kssk.', '......kssk..', '.....kssk...', '....kSSk....', '...kbBk.....', '..kbBk......', '.kbBk.......', 'kbBk........', 'kk..........'],
+    stun: ['....y..y....', '.....yy.....', '...kkkkkk...', '..kssssssk..', '..kSSSSSSk..', '..kssssssk..', '..kcccccck..', '..kssssssk..', '..kSSSSSSk..', '..kssssssk..', '...kkkkkk...', '............'],
+    smoke: ['...ll.......', '..lwwl.ll...', '..lwwwlwwl..', '...llwwwl...', '....kkkk....', '...kSSSSk...', '...kllllk...', '...kSSSSk...', '...kllllk...', '...kSSSSk...', '....kkkk....', '............'],
+    cay: ['............', '..kkkkkkkk..', '..kwttttwk..', '...kttttk...', '...kTttTk...', '....kttk....', '....kttk....', '...kttttk...', '..kTttttTk..', '..kkkkkkkk..', '.kssssssssk.', '..kkkkkkkk..'],
+    simit: ['............', '....kkkk....', '..kkbybbkk..', '.kbbBkkBbbk.', '.kbyk..kbyk.', 'kbBk....kbBk', 'kbyk....kbbk', '.kbBk..kbyk.', '.kbbBkkbBbk.', '..kkbbybkk..', '....kkkk....', '............'],
+    melee: ['.....kk.....', '....kssk....', '....kssk....', '....kssk....', '....kssk....', '....kSsk....', '...kkkkkk...', '..kSSSSSSk..', '....kbBk....', '....kbBk....', '....kbBk....', '.....kk.....'],
+    perk1: ['....kkkk....', '...kwwwwk...', '..kwwwwwwk..', '..kwkwwkwk..', '..kwkwwkwk..', '..kwwwwwwk..', '..kwwwwwwk..', '..kwwwwwwk..', '..kwkwwkwk..', '..kk.kk.kk..', '............', '............'],
+    perk2: ['.....kk.....', '....kyyk....', '....kyyk....', '...kyyyyk...', '...kyyyyk...', '...kkkkkk...', '...kooook...', '...kooook...', '...kooook...', '...kooook...', '...kkkkkk...', '............'],
+    perk3: ['.......kkk..', '......kyyk..', '.....kyyk...', '....kyyk....', '...kyyyykk..', '..kkkyyyyk..', '.....kyyk...', '....kyyk....', '...kyyk.....', '...kyk......', '...kk.......', '............'],
+    uav: ['.....kk.....', '.....kSk....', '.....kSk....', '.kkkkkSkkkk.', '.kSSSSsSSSk.', '.kkkkkSkkkk.', '.....kSk....', '.....kSk....', '....kkSkk...', '....kSSSk...', '....kkkkk...', '............'],
+    airstrike: ['....kkkk....', '....kSSk....', '...kkkkkk...', '...kSSSSk...', '..kSssssSk..', '..kSssssSk..', '..kSSSSSSk..', '...kSSSSk...', '....kkkk....', '...r.r.r....', '..r.r.r.r...', '............'],
+    sentry: ['............', '.......kkkkk', '...kkkkSSSSk', '..kSSSSkkkkk', '..kSssSk....', '..kSSSSk....', '...kkkk.....', '....kk......', '...kSSk.....', '..kS..Sk....', '.kS....Sk...', 'kk......kk..'],
+    heli: ['kkkkkkkkkkkk', '.....kk.....', '...kkkkk....', '..kSSSSSk...', '.kSccSSSSkkk', '.kSccSSSSSSk', '.kSSSSSSkkkk', '..kSSSSSk...', '...kkkkk....', '...k...k....', '..kkkkkkk...', '............'],
+  };
+  const iconCache = {};
+  G.itemIcon = function (kind) {
+    if (iconCache[kind] != null) return iconCache[kind];
+    const rows = ICONS[kind];
+    if (!rows) return (iconCache[kind] = '');
+    const S = 3;
+    const c = document.createElement('canvas');
+    c.width = c.height = 12 * S;
+    const x = c.getContext('2d');
+    rows.forEach((row, j) => {
+      for (let i = 0; i < 12; i++) {
+        const col = PAL[row[i]];
+        if (!col) continue;
+        x.fillStyle = col;
+        x.fillRect(i * S, j * S, S, S);
+      }
+    });
+    return (iconCache[kind] = c.toDataURL('image/png'));
+  };
+  // Öldürme akışı için silah simgesi: kimlik ya da adla bulunur
+  const nameToId = {};
+  function feedIcon(id, name) {
+    if (!id && name) {
+      if (!Object.keys(nameToId).length) for (const k in G.WEAPONS) nameToId[G.WEAPONS[k].name] = k;
+      id = nameToId[name];
+      if (!id) {
+        const n = String(name);
+        if (/Bomba/.test(n)) id = /Yapışkan/.test(n) ? 'semtex' : 'frag';
+        else if (/Helikopter/.test(n)) id = 'heli';
+        else if (/Taret/.test(n)) id = 'sentry';
+        else if (/Hava Saldırısı/.test(n)) id = 'airstrike';
+        else if (/Bıçak/.test(n)) id = 'knife';
+      }
+    }
+    if (!id) return '';
+    if (G.WEAPONS[id]) return G.weaponImage(id, 'icon');
+    if (id === 'melee') return G.itemIcon('melee');
+    return G.itemIcon(id);
+  }
 
   // ---------------- Maç başlangıcı ----------------
   H.startMatch = function (m) {
@@ -114,6 +184,15 @@
     }
     H.buildStreaks();
     $('h-fps').hidden = !G.settings.showFps;
+    H.wid = null;
+    H.pipKey = '';
+    H.lethalKind = null;
+    H.tacKind = null;
+    // Öldürme akışındaki simgeleri maç başında hazırla (oyun sırasında takılma olmasın)
+    const pre = new Set((G.BOT_WEAPONS || []).map((x) => (Array.isArray(x) ? x[0] : x)));
+    const pl = m.player;
+    if (pl && pl.weapons) for (const w of pl.weapons) if (w && w.stats) pre.add(w.stats.id);
+    for (const id of pre) if (G.WEAPONS[id]) G.weaponImage(id, 'icon');
   };
 
   H.buildStreaks = function () {
@@ -121,7 +200,7 @@
     el.innerHTML = '';
     G.STREAKS.forEach((s, i) => {
       const d = U.el('div', 'streak');
-      d.innerHTML = `<b>${i + 3}</b><span>${s.name}</span><em>${s.cost}</em><i></i>`;
+      d.innerHTML = `<b>${i + 3}</b><img alt="" src="${G.itemIcon(s.id)}"><span>${s.name}</span><em>${s.cost}</em><i></i>`;
       d.id = 'h-streak-' + i;
       d.addEventListener('pointerdown', (e) => {
         e.preventDefault();
@@ -244,6 +323,59 @@
     }
   }
 
+  // ---------------- Pusula ----------------
+  const DIRS8 = ['K', 'KD', 'D', 'GD', 'G', 'GB', 'B', 'KB'];
+  function bearing(p, x, z) {
+    return ((Math.atan2(x - p.pos.x, -(z - p.pos.z)) * 180) / Math.PI + 360) % 360;
+  }
+  function drawCompass(m) {
+    const ctx = H.compassCtx;
+    const W = H.compass.width, Hh = H.compass.height;
+    const p = m.player;
+    const hdg = ((((-p.yaw * 180) / Math.PI) % 360) + 360) % 360;
+    const ppd = W / 180;
+    ctx.clearRect(0, 0, W, Hh);
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(0.2, 'rgba(0,0,0,0.45)');
+    grad.addColorStop(0.8, 'rgba(0,0,0,0.45)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, Hh);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const start = Math.ceil((hdg - 90) / 15) * 15;
+    for (let a = start; a <= hdg + 90; a += 15) {
+      const x = Math.round(W / 2 + (a - hdg) * ppd);
+      const fade = 1 - Math.abs(a - hdg) / 92;
+      const n = ((a % 360) + 360) % 360;
+      if (n % 45 === 0) {
+        ctx.fillStyle = n === 0 ? `rgba(255,178,56,${fade})` : `rgba(240,244,240,${fade})`;
+        ctx.font = '12px "Silkscreen", monospace';
+        ctx.fillText(DIRS8[n / 45], x, 14);
+      } else {
+        ctx.fillStyle = `rgba(240,244,240,${fade * 0.6})`;
+        ctx.fillRect(x, 10, 1, 7);
+      }
+    }
+    const mark = (b, col, label) => {
+      let d = ((b - hdg + 540) % 360) - 180;
+      const edge = Math.abs(d) > 88;
+      d = U.clamp(d, -88, 88);
+      const x = Math.round(W / 2 + d * ppd);
+      ctx.fillStyle = col;
+      if (label) {
+        ctx.font = '10px "Silkscreen", monospace';
+        ctx.fillText(label, x, 5);
+      }
+      ctx.fillRect(x - 2, edge ? 20 : 21, 4, 4);
+    };
+    for (const f of m.flags) mark(bearing(p, f.pos.x, f.pos.z), f.owner === p.team ? '#4cc3ff' : f.owner === -1 ? '#dddddd' : '#ff4d3d', f.id);
+    for (const mk of H.markers) mark(bearing(p, mk.pos.x, mk.pos.z), '#ffd23a', '');
+    ctx.fillStyle = '#ffb238';
+    ctx.fillRect(W / 2 - 1, 20, 2, 6);
+  }
+
   // ---------------- Olaylar ----------------
   H.hitmarker = function (kill, head, ent) {
     const el = H.hit;
@@ -332,7 +464,9 @@
     const isFriend = (team) => player && (team === player.team || (player.team === 'me' && false));
     const kc = e.killer === (player && player.name) ? 'me' : isFriend(e.kteam) ? 'fr' : 'en';
     const vc = e.victim === (player && player.name) ? 'me' : isFriend(e.vteam) ? 'fr' : 'en';
-    d.innerHTML = `${e.killer ? `<b class="${kc}">${escapeHtml(e.killer)}</b>` : ''}<i>${escapeHtml(e.weapon || '')}${e.head ? ' ⌖' : ''}</i><b class="${vc}">${escapeHtml(e.victim)}</b>`;
+    const ic = feedIcon(e.weaponId, e.weapon);
+    const wpn = ic ? `<img alt="${escapeHtml(e.weapon || '')}" title="${escapeHtml(e.weapon || '')}" src="${ic}">` : `<i>${escapeHtml(e.weapon || '')}</i>`;
+    d.innerHTML = `${e.killer ? `<b class="${kc}">${escapeHtml(e.killer)}</b>` : ''}${wpn}${e.head ? '<span class="wb">⌖</span>' : ''}<b class="${vc}">${escapeHtml(e.victim)}</b>`;
     box.prepend(d);
     while (box.children.length > 6) box.lastChild.remove();
     setTimeout(() => d.remove(), 7000);
@@ -485,21 +619,61 @@
     $('h-vignette').style.opacity = p.alive ? Math.pow(1 - hp, 1.6) * 0.95 : 0.6;
     $('h-stun').style.opacity = G.time < p.stunUntil ? Math.min(0.7, (p.stunUntil - G.time) * 0.25) : 0;
     // silah
+    const lowEl = $('h-lowammo');
     if (w) {
-      $('h-wname').textContent = s.name;
-      $('h-wname').classList.toggle('pap', !!s.upgraded);
+      const wid = s.id + (s.upgraded ? '+' : '');
+      if (H.wid !== wid) {
+        H.wid = wid;
+        $('h-wname').textContent = s.name;
+        $('h-wname').classList.toggle('pap', !!s.upgraded);
+        const ic = G.WEAPONS[s.id] ? G.weaponImage(s.id, 'icon') : '';
+        $('h-wicon').hidden = !ic;
+        if (ic) $('h-wicon').src = ic;
+      }
       $('h-mag').textContent = w.ammo;
-      $('h-mag').classList.toggle('low', w.ammo <= Math.ceil(s.mag * 0.25));
+      const low = w.ammo <= Math.ceil(s.mag * 0.25);
+      $('h-mag').classList.toggle('low', low);
       $('h-res').textContent = '/ ' + w.reserve;
+      // mermi çubukları
+      const pk = s.mag + ':' + w.ammo;
+      if (H.pipKey !== pk) {
+        H.pipKey = pk;
+        const pips = $('h-pips');
+        if (s.mag > 1 && s.mag <= 60) {
+          let html = '';
+          for (let i = 0; i < s.mag; i++) html += i < w.ammo ? '<i></i>' : '<i class="off"></i>';
+          pips.innerHTML = html;
+          pips.hidden = false;
+        } else pips.hidden = true;
+      }
+      const out = w.ammo === 0 && w.reserve === 0;
+      const showLow = p.alive && !p.reload && (out || (low && w.reserve > 0 && s.mag > 1));
+      lowEl.hidden = !showLow;
+      if (showLow) {
+        lowEl.className = out ? 'out' : '';
+        lowEl.textContent = out ? 'CEPHANE YOK' : G.isTouch ? 'ŞARJÖR DEĞİŞTİR' : `ŞARJÖR DEĞİŞTİR [${G.keyLabel ? G.keyLabel(G.input.binds.reload[0]) : 'R'}]`;
+      }
     } else {
+      H.wid = null;
       $('h-wname').textContent = '—';
       $('h-mag').textContent = '';
       $('h-res').textContent = '';
+      $('h-pips').hidden = true;
+      $('h-wicon').hidden = true;
+      lowEl.hidden = true;
     }
-    $('h-lethal').textContent = (p.lethal === 'knife' ? '🗡' : p.lethal === 'semtex' ? '◉' : '●') + p.lethalCount;
-    $('h-tac').textContent = (p.tactical === 'smoke' ? '☁' : '✦') + p.tacticalCount;
-    $('h-cay').textContent = '☕' + p.cay;
-    $('h-simit').textContent = '◯' + p.simit;
+    if (H.lethalKind !== p.lethal) {
+      H.lethalKind = p.lethal;
+      $('h-lethal').querySelector('img').src = G.itemIcon(p.lethal) || '';
+    }
+    if (H.tacKind !== p.tactical) {
+      H.tacKind = p.tactical;
+      $('h-tac').querySelector('img').src = G.itemIcon(p.tactical) || '';
+    }
+    $('h-lethal').querySelector('b').textContent = p.lethalCount;
+    $('h-tac').querySelector('b').textContent = p.tacticalCount;
+    $('h-cay').querySelector('b').textContent = p.cay;
+    $('h-simit').querySelector('b').textContent = p.simit;
     // tamponlar
     let buffs = '';
     if (G.time < p.cayUntil) buffs += `<span class="buff tea">ÇAY GÜCÜ ${Math.ceil(p.cayUntil - G.time)}</span>`;
@@ -589,6 +763,7 @@
     $('h-board').hidden = !showBoard;
     if (showBoard) renderBoard(m);
     drawMini(m);
+    drawCompass(m);
     if (G.settings.showFps) {
       fpsAcc += dt;
       fpsN++;

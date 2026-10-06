@@ -11,7 +11,7 @@
 
   G.makeWeaponInst = function (id, att, opts) {
     const o = opts || {};
-    const stats = G.computeStats(id, att, { upgraded: o.upgraded });
+    const stats = G.computeStats(id, att, { upgraded: o.upgraded, camo: o.camo });
     let reserve = stats.reserve;
     if (o.extraMags) reserve += stats.mag * o.extraMags;
     return { id, att: att || {}, stats, ammo: stats.mag, reserve, upgraded: !!o.upgraded };
@@ -81,7 +81,9 @@
       this.loadout = cls;
       this.perks = new Set(cls.perks || []);
       const extra = this.perks.has('cephane') ? 2 : 0;
-      this.weapons = [G.makeWeaponInst(cls.primary, cls.pAtt, { extraMags: extra }), cls.secondary ? G.makeWeaponInst(cls.secondary, cls.sAtt, { extraMags: extra }) : null];
+      this.weapons = [G.makeWeaponInst(cls.primary, cls.pAtt, { extraMags: extra, camo: cls.pCamo }), cls.secondary ? G.makeWeaponInst(cls.secondary, cls.sAtt, { extraMags: extra, camo: cls.sCamo }) : null];
+      this.meleeId = G.MELEE[cls.melee] ? cls.melee : 'bicak';
+      if (this.vm) this.vm.setMelee(this.meleeId);
       this.lethal = cls.lethal;
       this.tactical = cls.tactical;
       this.lethalCount = 1 + (this.perks.has('cephane') ? 1 : 0);
@@ -584,6 +586,8 @@
         this.startReload();
       }
 
+      // silahı incele
+      if (IN.hit('inspect') && this.busy <= 0 && !this.reload && this.adsT < 0.1 && this.vm) this.vm.play('inspect', 2.6);
       // bıçak
       if (IN.hit('melee') && this.busy <= 0) {
         this.startMelee();
@@ -726,7 +730,8 @@
         G.fx.brass(muzzle.clone().addScaledVector(dir, -0.45), ev);
       }
       // geri tepme
-      const vmul = (this.adsT > 0.5 ? 1 : 0.85) * (this.crouching ? 0.85 : this.prone ? 0.6 : 1);
+      let vmul = (this.adsT > 0.5 ? 1 : 0.85) * (this.crouching ? 0.85 : this.prone ? 0.6 : 1);
+      if (s.bipod && (this.crouching || this.prone)) vmul *= 0.65;
       this.pitch += s.recV * U.DEG * vmul * (0.8 + Math.random() * 0.4);
       this.yaw += (Math.random() - 0.5) * 2 * s.recH * U.DEG * vmul;
       this.recoilVis += s.recV * 0.01;
@@ -743,14 +748,18 @@
     }
 
     startMelee() {
+      const M = G.MELEE[this.meleeId || 'bicak'];
       this.reload = null;
-      this.busy = 0.5;
+      this.busy = M.speed + 0.05;
       this.busyType = 'melee';
       this.meleeHit = false;
-      if (this.vm) this.vm.play('melee', 0.5);
+      if (this.vm) {
+        this.vm.setMelee(this.meleeId || 'bicak');
+        this.vm.play('melee', M.speed + 0.05);
+      }
       G.audio.play('melee');
       // hamle
-      const target = this.meleeTarget(3.8, 18);
+      const target = this.meleeTarget(M.lunge, 18);
       if (target) {
         const d = target.pos.clone().sub(this.pos);
         d.y = 0;
@@ -795,13 +804,15 @@
     }
 
     updateItems(dt) {
-      if (this.busyType === 'melee' && !this.meleeHit && this.busy < 0.36) {
+      const MW = G.MELEE[this.meleeId || 'bicak'];
+      if (this.busyType === 'melee' && !this.meleeHit && this.busy < MW.speed * 0.7) {
         this.meleeHit = true;
-        const t = this.meleeTarget(2.3, 40);
+        const t = this.meleeTarget(MW.range, 40);
         if (t) {
-          const dmg = G.game && G.game.mode === 'zm' ? 150 * (this.zmPerks.has('ciftatis') ? 1.25 : 1) * (G.game.instakill ? 99 : 1) : 150;
+          const zmode = G.game && (G.game.mode === 'zm' || G.game.zd);
+          const dmg = zmode ? MW.zm * (this.zmPerks.has('ciftatis') ? 1.25 : 1) * (G.game.instakill ? 99 : 1) * (1 + (G.game.zd ? G.game.zd.round * 0.05 : 0)) : 150;
           const c = t.chest(v3());
-          t.takeDamage(dmg, this, { weapon: 'Bıçak', weaponId: 'melee', melee: true, dir: c.clone().sub(this.pos).normalize(), point: c });
+          t.takeDamage(dmg, this, { weapon: MW.name, weaponId: 'melee', melee: true, dir: c.clone().sub(this.pos).normalize(), point: c });
           G.fx.blood(c.x, c.y, c.z, -Math.sin(this.yaw), 0, -Math.cos(this.yaw), 1.5, t.kind === 'zombie' ? [0.35, 0.08, 0.05] : null);
           G.audio.play('stab');
           G.hud && G.hud.hitmarker(!t.alive, false);

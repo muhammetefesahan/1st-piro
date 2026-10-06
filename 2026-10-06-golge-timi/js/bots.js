@@ -59,7 +59,9 @@
 
     buildModel(scene) {
       const tag = this.ally ? G.spriteTex('chevron') : null;
-      this.model = G.makeHumanoid({ kind: 'soldier', look: this.look, weapon: this.wstats, tag });
+      const ops = Object.keys(G.OPERATORS);
+      const operator = this.look === 0 ? this.operator || (this.operator = ops[(this.id * 7) % ops.length]) : null;
+      this.model = G.makeHumanoid({ kind: 'soldier', look: this.look, weapon: this.wstats, tag, operator });
       scene.add(this.model.root);
     }
 
@@ -272,7 +274,7 @@
       if (m) {
         m.root.position.set(this.pos.x, this.pos.y, this.pos.z);
         m.root.rotation.y = this.yaw;
-        m.animate(dt, { speed: hs, crouch: this.crouchT, pitch: this.pitch });
+        m.animate(dt, { speed: hs, crouch: this.crouchT, pitch: this.pitch, reload: this.reloadUntil > G.time });
       }
     }
 
@@ -473,6 +475,7 @@
       });
       G.audio.shot(s.sound, this.pos, { suppressed: s.suppressed });
       G.fx.muzzle(muzzle, dir, s.cls === 'shotgun' || s.cls === 'sniper');
+      if (this.model) this.model.kick = 1;
       if (G.game && G.game.onShot) G.game.onShot(this, s);
     }
 

@@ -116,6 +116,11 @@
       }
       let sp = this.attackT > 0 ? 0.3 : this.speed;
       if (G.time < this.stunUntil) sp *= 0.4;
+      if (G.time < (this.frozenUntil || 0)) {
+        sp = 0;
+        this.attackT = 0;
+        if (Math.random() < 0.2) G.fx.sparkle(this.chest(new THREE.Vector3()), 0x9fefff, 1);
+      }
       this.vel.x = U.damp(this.vel.x, mx * sp, 10, dt);
       this.vel.z = U.damp(this.vel.z, mz * sp, 10, dt);
       this.vel.y -= 20 * dt;
@@ -715,6 +720,8 @@
       if (killer === this.player) {
         let pts = info.melee ? 130 : info.headshot ? 100 : 60;
         this.addPoints(pts);
+        G.progress.kill(info.weaponId, info, { zombie: true });
+        if (info.headshot && z.model && z.model.popHead) z.model.popHead();
       }
       // güçlendirme düşür
       const lastOne = this.toSpawn === 0 && this.zombies.filter((x) => x.alive).length === 0;

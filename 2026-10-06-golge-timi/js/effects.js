@@ -316,7 +316,7 @@
     if (!fx.add) return;
     const o = opts || {};
     const r = radius || 5;
-    const col = o.plasma ? [0.3, 1, 0.55] : [1, 0.55, 0.15];
+    const col = o.frost ? [0.55, 0.9, 1] : o.plasma ? [0.3, 1, 0.55] : [1, 0.55, 0.15];
     for (let i = 0; i < 26 + r * 3; i++) {
       const a = Math.random() * Math.PI * 2, e = Math.random() * Math.PI * 0.5;
       const sp = U.rand(2, 7) * (r / 5);

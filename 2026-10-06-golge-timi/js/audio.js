@@ -180,6 +180,21 @@
     pistol: { lp: 5000, lp1: 1000, dur: 0.09, thump: 230, tail: 0.35, crack: 0.2, gain: 0.7 },
     magnum: { lp: 3400, lp1: 400, dur: 0.22, thump: 100, tail: 0.9, crack: 0.4, gain: 1.05 },
     turret: { lp: 4500, lp1: 900, dur: 0.07, thump: 190, tail: 0.25, crack: 0.15, gain: 0.6 },
+    ar4: { lp: 4600, lp1: 900, dur: 0.11, thump: 175, tail: 0.42, crack: 0.22, gain: 0.78 },
+    bullpup: { lp: 4000, lp1: 760, dur: 0.12, thump: 160, tail: 0.48, crack: 0.26, gain: 0.82 },
+    ak: { lp: 2700, lp1: 420, dur: 0.18, thump: 105, tail: 0.7, crack: 0.3, gain: 1.0 },
+    smg3: { lp: 5600, lp1: 1300, dur: 0.07, thump: 220, tail: 0.28, crack: 0.18, gain: 0.66 },
+    smg4: { lp: 4800, lp1: 1100, dur: 0.08, thump: 200, tail: 0.3, crack: 0.2, gain: 0.68 },
+    smg5: { lp: 6400, lp1: 1700, dur: 0.05, thump: 260, tail: 0.22, crack: 0.16, gain: 0.6 },
+    shotgun2: { lp: 3000, lp1: 380, dur: 0.26, thump: 95, tail: 0.7, crack: 0.28, gain: 1.05 },
+    shotgun3: { lp: 2200, lp1: 240, dur: 0.38, thump: 70, tail: 1.1, crack: 0.34, gain: 1.25 },
+    dmr2: { lp: 3200, lp1: 340, dur: 0.22, thump: 88, tail: 1.0, crack: 0.38, gain: 1.05 },
+    sniper50: { lp: 2600, lp1: 160, dur: 0.42, thump: 52, tail: 1.8, crack: 0.6, gain: 1.35 },
+    sniper2: { lp: 3600, lp1: 300, dur: 0.26, thump: 80, tail: 1.2, crack: 0.45, gain: 1.1 },
+    lmg2: { lp: 2900, lp1: 480, dur: 0.17, thump: 100, tail: 0.7, crack: 0.28, gain: 1.0 },
+    lmg3: { lp: 3800, lp1: 700, dur: 0.13, thump: 140, tail: 0.5, crack: 0.24, gain: 0.88 },
+    mpistol: { lp: 5800, lp1: 1500, dur: 0.06, thump: 250, tail: 0.24, crack: 0.16, gain: 0.6 },
+    pistol45: { lp: 4200, lp1: 700, dur: 0.12, thump: 160, tail: 0.5, crack: 0.26, gain: 0.85 },
     heli: { lp: 3000, lp1: 600, dur: 0.1, thump: 120, tail: 0.4, crack: 0.2, gain: 0.8 },
   };
 
@@ -194,6 +209,29 @@
       if (!d) return;
       noiseHit(d, t, { type: 'bandpass', f0: 300, f1: 1800, dur: 0.7, gain: 0.8, q: 1.2 });
       tone(d, t, { f0: 120, f1: 40, dur: 0.3, gain: 0.7 });
+      return;
+    }
+    if (kind === 'crossbow') {
+      const d = out({ pos: isPlayer ? null : pos, vol: 0.7, ref: 6 });
+      if (!d) return;
+      tone(d, t, { wave: 'triangle', f0: 180, f1: 90, dur: 0.18, gain: 0.35 });
+      noiseHit(d, t, { type: 'bandpass', f0: 1800, f1: 600, dur: 0.12, gain: 0.3, q: 2 });
+      return;
+    }
+    if (kind === 'flare' || kind === 'gl') {
+      const d = out({ pos: isPlayer ? null : pos, vol: 0.85, ref: 12 });
+      if (!d) return;
+      tone(d, t, { f0: kind === 'gl' ? 110 : 220, f1: 50, dur: 0.18, gain: 0.8 });
+      noiseHit(d, t, { type: 'lowpass', f0: kind === 'gl' ? 900 : 2400, f1: 200, dur: 0.25, gain: 0.6 });
+      if (kind === 'flare') noiseHit(d, t + 0.05, { type: 'highpass', f0: 3000, dur: 0.6, gain: 0.15, attack: 0.05 });
+      return;
+    }
+    if (kind === 'frost') {
+      const d = out({ pos: isPlayer ? null : pos, vol: 0.7 });
+      if (!d) return;
+      tone(d, t, { wave: 'sine', f0: 2600, f1: 700, dur: 0.3, gain: 0.2 });
+      tone(d, t, { wave: 'triangle', f0: 3900, f1: 2200, dur: 0.2, gain: 0.12 });
+      noiseHit(d, t, { type: 'highpass', f0: 5000, dur: 0.25, gain: 0.25 });
       return;
     }
     if (kind === 'plasma') {

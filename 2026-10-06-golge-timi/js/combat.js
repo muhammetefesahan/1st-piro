@@ -22,60 +22,113 @@
     return G.game.canHurt(a, b);
   }
 
-  // Tek mermi izi. Dönüş: {target, part, killed, point, dist}
+  const PENETRABLE = new Set(['crate', 'container', 'vehicle', 'cover', 'door', 'barrel', 'machine', 'pole', 'rail', 'tree']);
+  function canPenetrate(box, pen) {
+    if (!box || pen <= 0) return false;
+    if (PENETRABLE.has(box.kind)) return true;
+    if (pen >= 2 && box.kind === 'wall') return Math.min(box.x1 - box.x0, box.z1 - box.z0) <= 2.05;
+    return false;
+  }
+
+  // Tek mermi izi (delme dahil). Dönüş: {target, part, killed, point, dist}
   C.trace = function (shooter, ox, oy, oz, dx, dy, dz, stats, opts) {
     const o = opts || {};
     const world = G.world;
     const range = o.range || 400;
-    const hit = world.raycast(ox, oy, oz, dx, dy, dz, range);
-    let maxT = hit ? hit.t : range;
-    let best = null, bestT = maxT, bestPart = null;
+    let pen = stats.pen || 0;
+    let mul = 1;
+    let sx = ox, sy = oy, sz = oz;
+    let traveled = 0;
     const list = hittables();
-    for (let i = 0; i < list.length; i++) {
-      const h = list[i];
-      if (h === shooter || !h.alive) continue;
-      if (!canHurt(shooter, h)) continue;
-      const r = h.hitTest(ox, oy, oz, dx, dy, dz, bestT);
-      if (r && r.t < bestT) {
-        bestT = r.t;
-        best = h;
-        bestPart = r.part;
+    for (let seg = 0; seg < 4; seg++) {
+      const left = range - traveled;
+      const hit = world.raycast(sx, sy, sz, dx, dy, dz, left);
+      const maxT = hit ? hit.t : left;
+      let best = null, bestT = maxT, bestPart = null;
+      for (let i = 0; i < list.length; i++) {
+        const h = list[i];
+        if (h === shooter || !h.alive) continue;
+        if (!canHurt(shooter, h)) continue;
+        const r = h.hitTest(sx, sy, sz, dx, dy, dz, bestT);
+        if (r && r.t < bestT) {
+          bestT = r.t;
+          best = h;
+          bestPart = r.part;
+        }
       }
-    }
-    const px = ox + dx * bestT, py = oy + dy * bestT, pz = oz + dz * bestT;
-    const point = new THREE.Vector3(px, py, pz);
-    let killed = false;
-    if (best) {
-      let dmg = o.fixedDamage != null ? o.fixedDamage : G.damageAt(stats, bestT);
-      if (bestPart === 'head') dmg *= o.headMult || stats.head || 1.3;
-      else if (bestPart === 'legs') dmg *= stats.legs || 0.9;
-      dmg *= o.dmgMul || 1;
-      const info = {
-        weapon: o.weaponName || stats.name,
-        weaponId: stats.id,
-        headshot: bestPart === 'head',
-        part: bestPart,
-        dist: bestT,
-        dir: new THREE.Vector3(dx, dy, dz),
-        point,
-        from: new THREE.Vector3(ox, oy, oz),
-        pellet: !!o.pellet,
-        suppressed: !!stats.suppressed,
-      };
-      killed = best.takeDamage(dmg, shooter, info);
-      if (best.isEnt) {
-        G.fx.impact(px, py, pz, -dx, -dy, -dz, true);
-      } else if (G.fx.blood) {
-        const col = best.kind === 'zombie' || best.kind === 'dog' ? [0.35, 0.08, 0.05] : null;
-        G.fx.blood(px, py, pz, dx, dy, dz, bestPart === 'head' ? 1.6 : 1, col);
+      const px = sx + dx * bestT, py = sy + dy * bestT, pz = sz + dz * bestT;
+      const point = new THREE.Vector3(px, py, pz);
+      const dist = traveled + bestT;
+      if (best) {
+        let dmg = o.fixedDamage != null ? o.fixedDamage : G.damageAt(stats, dist);
+        if (bestPart === 'head') dmg *= o.headMult || stats.head || 1.3;
+        else if (bestPart === 'legs') dmg *= stats.legs || 0.9;
+        if (stats.hollow && bestPart !== 'head') dmg *= 1.12;
+        dmg *= (o.dmgMul || 1) * mul;
+        const info = {
+          weapon: o.weaponName || stats.name,
+          weaponId: stats.id,
+          headshot: bestPart === 'head',
+          part: bestPart,
+          dist,
+          dir: new THREE.Vector3(dx, dy, dz),
+          point,
+          from: new THREE.Vector3(ox, oy, oz),
+          pellet: !!o.pellet,
+          suppressed: !!stats.suppressed,
+          wallbang: seg > 0,
+        };
+        const killed = best.takeDamage(dmg, shooter, info);
+        if (stats.burn && !best.isEnt && best.alive) C.ignite(best, shooter, 3, stats.name);
+        if (best.isEnt) {
+          G.fx.impact(px, py, pz, -dx, -dy, -dz, true);
+        } else if (G.fx.blood) {
+          const col = best.kind === 'zombie' || best.kind === 'dog' ? [0.35, 0.08, 0.05] : null;
+          G.fx.blood(px, py, pz, dx, dy, dz, bestPart === 'head' ? 1.6 : 1, col);
+        }
+        if (shooter && shooter.onHitTarget) shooter.onHitTarget(best, bestPart, killed, info, dmg);
+        return { target: best, part: bestPart, killed, point, dist, world: false };
       }
-      if (shooter && shooter.onHitTarget) shooter.onHitTarget(best, bestPart, killed, info, dmg);
-    } else if (hit) {
+      if (!hit) return { target: null, part: null, killed: false, point, dist, world: false };
       G.fx.impact(hit.x, hit.y, hit.z, hit.nx, hit.ny, hit.nz, hit.box && hit.box.metal);
-      if (hit.box && hit.box.ent && hit.box.ent.type === 'barrel') C.damageBarrel(hit.box.ent, G.damageAt(stats, bestT), shooter);
+      if (hit.box && hit.box.ent && hit.box.ent.type === 'barrel') C.damageBarrel(hit.box.ent, G.damageAt(stats, dist) * mul, shooter);
+      if (canPenetrate(hit.box, pen)) {
+        pen--;
+        mul *= 0.65;
+        traveled += hit.t + 0.03;
+        sx = hit.x + dx * 0.03;
+        sy = hit.y + dy * 0.03;
+        sz = hit.z + dz * 0.03;
+        continue;
+      }
       if (o.isPlayer && Math.random() < 0.15) G.audio.play('ricochet', { pos: point, vol: 0.6 });
+      return { target: null, part: null, killed: false, point, dist, world: true };
     }
-    return { target: best, part: bestPart, killed, point, dist: bestT, world: !best && !!hit };
+    return { target: null, part: null, killed: false, point: new THREE.Vector3(sx, sy, sz), dist: traveled, world: true };
+  };
+
+  // Yakma (yakıcı mermi, işaret fişeği)
+  C.ignite = function (target, by, dur, name) {
+    target.burnUntil = Math.max(target.burnUntil || 0, G.time + dur);
+    target.burnBy = by;
+    target.burnName = name || 'Yanık';
+  };
+  C.updateBurns = function (dt, list) {
+    for (const c of list) {
+      if (!c.burnUntil || !c.alive) continue;
+      if (G.time > c.burnUntil) {
+        c.burnUntil = 0;
+        continue;
+      }
+      c.burnTick = (c.burnTick || 0) - dt;
+      const ch = c.chest ? c.chest(tmp) : c.pos;
+      if (G.fx.add) G.fx.add.add(ch.x + U.rand(-0.2, 0.2), ch.y + U.rand(-0.4, 0.4), ch.z + U.rand(-0.2, 0.2), 0, U.rand(1, 2), 0, 0.4, 0.25, 0.05, 1, 0.5, 0.1, 0.9, -1, 1);
+      if (c.burnTick <= 0) {
+        c.burnTick = 0.25;
+        const zm = c.kind === 'zombie' || c.kind === 'dog';
+        c.takeDamage(zm ? 22 : 4, c.burnBy || null, { weapon: c.burnName, burn: true });
+      }
+    }
   };
 
   // Atış: saçılım + saçma + iz
@@ -125,7 +178,7 @@
   // Patlama hasarı (siper kontrollü)
   C.explode = function (pos, radius, maxDmg, owner, opts) {
     const o = opts || {};
-    G.fx.explosion(pos, radius, { plasma: o.plasma });
+    G.fx.explosion(pos, radius, { plasma: o.plasma, frost: o.frost });
     if (G.game && G.game.net && owner && (owner.isPlayer || (owner.creditTo && owner.creditTo.isPlayer))) G.game.net.explosionVisual(pos);
     if (!o.silent) G.audio.play(o.plasma ? 'impact' : o.stun ? 'stunBang' : 'explosion', { pos, ref: 22, priority: true, vol: o.plasma ? 0.8 : 1 });
     const list = hittables();
@@ -145,6 +198,10 @@
         visible = G.world.los(origin.x, origin.y, origin.z, hp.x, hp.y, hp.z, true);
       }
       if (!visible) continue;
+      if (o.frost && h.alive !== undefined) {
+        h.stunUntil = Math.max(h.stunUntil || 0, G.time + 3);
+        h.frozenUntil = G.time + 2.5;
+      }
       if (o.stun) {
         h.stunUntil = Math.max(h.stunUntil || 0, G.time + 1.5 + 3 * (1 - d / radius));
         if (h.onStun) h.onStun(1 - d / radius);
@@ -184,6 +241,18 @@
       m = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0x70ffb0 }));
     } else if (kind === 'knife') {
       m = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.3), G.gunMat(0xcfd4d8, { metal: 0.9, rough: 0.2 }));
+    } else if (kind === 'bolt') {
+      m = new THREE.Group();
+      m.add(new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.42), G.gunMat(0x8a8e92, { metal: 0.9, rough: 0.3 })));
+      const fl = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.003, 0.06), G.gunMat(0xc02020, { metal: 0, rough: 0.8 }));
+      fl.position.z = 0.18;
+      m.add(fl);
+    } else if (kind === 'flare') {
+      m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff5a30 }));
+    } else if (kind === 'gl') {
+      m = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.06, 8).rotateX(Math.PI / 2), G.gunMat(0x4a5a3a));
+    } else if (kind === 'frost') {
+      m = new THREE.Mesh(new THREE.OctahedronGeometry(0.13), new THREE.MeshBasicMaterial({ color: 0x9fefff }));
     } else {
       const col = kind === 'smoke' ? 0x606a60 : kind === 'stun' ? 0x3a5a7a : kind === 'semtex' ? 0x8a8f50 : 0x3d4a2a;
       if (!projGeo.g) projGeo.g = new THREE.SphereGeometry(0.07, 8, 6);
@@ -226,6 +295,12 @@
     } else if (k === 'plasma') {
       const s = p.stats;
       C.explode(pos, s.projectile.radius, s.projectile.dmg, p.owner, { weaponName: s.name, weaponId: s.id, plasma: true, noSelf: true });
+    } else if (k === 'gl') {
+      const s = p.stats;
+      C.explode(pos, s.projectile.radius, s.projectile.dmg, p.owner, { weaponName: s.name, weaponId: s.id });
+    } else if (k === 'frost') {
+      const s = p.stats;
+      C.explode(pos, s.projectile.radius, s.projectile.dmg, p.owner, { weaponName: s.name, weaponId: s.id, plasma: true, frost: true, noSelf: true });
     } else if (k === 'stun') {
       C.explode(pos, 9, 0, p.owner, { weaponName: 'Sersemletici', stun: true });
     } else if (k === 'smoke') {
@@ -251,7 +326,7 @@
       if (p.stuck) {
         if (p.stuck.pos) p.pos.copy(p.stuck.pos).add(p.stuck.off);
       } else if (!p.rest) {
-        const g = p.kind === 'knife' ? 5 : p.kind === 'rocket' || p.kind === 'plasma' ? 0 : 17;
+        const g = p.kind === 'knife' ? 5 : p.kind === 'rocket' || p.kind === 'plasma' || p.kind === 'frost' ? 0 : p.stats && p.stats.projectile && p.stats.projectile.gravity != null ? p.stats.projectile.gravity : 17;
         const steps = 2;
         const h = dt / steps;
         for (let s = 0; s < steps && !remove && !p.stuck; s++) {
@@ -267,9 +342,13 @@
               if (ch === p.owner || !ch.alive || !canHurt(p.owner, ch)) continue;
               const r = ch.hitTest(p.pos.x, p.pos.y, p.pos.z, dx, dy, dz, step + 0.1);
               if (r && (!hit || r.t < hit.t)) {
-                if (p.kind === 'knife') {
-                  ch.takeDamage(250, p.owner, { weapon: 'Fırlatma Bıçağı', weaponId: 'knife', headshot: r.part === 'head', dir: new THREE.Vector3(dx, dy, dz), point: p.pos.clone() });
+                if (p.kind === 'knife' || p.kind === 'bolt' || p.kind === 'flare') {
+                  const dmg = p.kind === 'knife' ? 250 : p.stats.projectile.dmg * (p.dmgMul || 1);
+                  const nm = p.kind === 'knife' ? 'Fırlatma Bıçağı' : p.stats.name;
+                  const killed = ch.takeDamage(dmg, p.owner, { weapon: nm, weaponId: p.kind === 'knife' ? 'knife' : p.stats.id, headshot: r.part === 'head', dir: new THREE.Vector3(dx, dy, dz), point: p.pos.clone() });
+                  if (p.kind === 'flare' && ch.alive) C.ignite(ch, p.owner, 5, nm);
                   G.fx.blood(p.pos.x, p.pos.y, p.pos.z, dx, dy, dz, 1);
+                  if (p.owner && p.owner.onHitTarget) p.owner.onHitTarget(ch, r.part, killed, { weapon: nm }, dmg);
                   remove = true;
                 } else if (p.kind === 'semtex') {
                   p.stuck = { pos: ch.pos, off: new THREE.Vector3(0, 1.1, 0) };
@@ -287,10 +366,16 @@
           }
           if (hit) {
             p.pos.set(hit.x + hit.nx * 0.06, hit.y + hit.ny * 0.06, hit.z + hit.nz * 0.06);
-            if (p.kind === 'rocket' || p.kind === 'plasma') {
+            if (p.kind === 'rocket' || p.kind === 'plasma' || p.kind === 'gl' || p.kind === 'frost') {
               detonate(p);
               remove = true;
-            } else if (p.kind === 'knife') {
+            } else if (p.kind === 'flare') {
+              p.rest = true;
+              p.vel.set(0, 0, 0);
+              p.removeAt = G.time + 6;
+              G.fx.fireEmitter(p.pos.clone(), 5);
+              G.audio.play('bounce', { pos: p.pos });
+            } else if (p.kind === 'knife' || p.kind === 'bolt') {
               p.rest = true;
               p.vel.set(0, 0, 0);
               p.removeAt = G.time + 4;
@@ -325,8 +410,12 @@
         }
         if (p.kind === 'rocket' && !remove) G.fx.rocketTrail(p.pos);
         if (p.kind === 'plasma' && !remove) G.fx.plasmaTrail(p.pos);
+        if (p.kind === 'flare' && !remove) G.fx.rocketTrail(p.pos);
+        if (p.kind === 'frost' && !remove) G.fx.sparkle(p.pos, 0x9fefff, 2);
         if (p.kind === 'knife') p.mesh.rotation.x += dt * 20;
-        else if (!p.rest) {
+        else if (p.kind === 'bolt' || p.kind === 'gl') {
+          if (p.vel.lengthSq() > 0.01) p.mesh.lookAt(tmp.copy(p.pos).add(p.vel));
+        } else if (!p.rest) {
           p.mesh.rotation.x += dt * 8;
           p.mesh.rotation.z += dt * 5;
         }
@@ -340,7 +429,7 @@
         detonate(p);
         remove = true;
       }
-      if (!remove && (p.kind === 'rocket' || p.kind === 'plasma') && G.time - p.born > 4) {
+      if (!remove && (p.kind === 'rocket' || p.kind === 'plasma' || p.kind === 'gl' || p.kind === 'frost') && G.time - p.born > 4) {
         detonate(p);
         remove = true;
       }
