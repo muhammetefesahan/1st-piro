@@ -355,6 +355,31 @@
   }
   G.texture = texture;
 
+  // ---- Sevimli (toon) gölgelendirme yardımcıları ----
+  // Tüm gruplar aynı basamak haritasını kullanır ki ışık her yerde aynı "çizgi film" tonunda dursun.
+  let toonGrad = null;
+  G.toonGradient = function () {
+    if (toonGrad) return toonGrad;
+    const steps = new Uint8Array([150, 205, 255]);
+    toonGrad = new THREE.DataTexture(steps, steps.length, 1, THREE.LuminanceFormat);
+    toonGrad.minFilter = THREE.NearestFilter;
+    toonGrad.magFilter = THREE.NearestFilter;
+    toonGrad.generateMipmaps = false;
+    toonGrad.needsUpdate = true;
+    return toonGrad;
+  };
+  const toonCache = {};
+  // key: önbellek anahtarı (null → önbelleksiz). p: MeshToonMaterial parametreleri
+  // (color, map, vertexColors, emissive, emissiveIntensity, transparent, opacity, side, alphaTest...)
+  G.toonMat = function (key, p) {
+    if (key && toonCache[key]) return toonCache[key];
+    const params = Object.assign({ gradientMap: G.toonGradient() }, p || {});
+    if (params.emissive != null && !(params.emissive instanceof THREE.Color)) params.emissive = new THREE.Color(params.emissive);
+    const m = new THREE.MeshToonMaterial(params);
+    if (key) toonCache[key] = m;
+    return m;
+  };
+
   const matCache = {};
   // Ortak malzeme fabrikası
   G.mat = function (key, opts) {

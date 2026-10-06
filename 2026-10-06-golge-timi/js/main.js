@@ -199,9 +199,11 @@
     }
 
     G.onResize = function () {
-      const px = Math.max(1, Math.round(G.settings.pixel || 3));
+      const px = Math.max(1, Math.round(G.settings.pixel || 1));
+      const rs = (G.perf && G.perf.scale) || 1; // uyarlanır çözünürlük (perf.js)
       const w = window.innerWidth, h = window.innerHeight;
-      const nw = Math.max(160, Math.floor(w / px)), nh = Math.max(90, Math.floor(h / px));
+      const nw = Math.max(160, Math.floor((w * rs) / px)), nh = Math.max(90, Math.floor((h * rs) / px));
+      document.body.classList.toggle('retro', px > 1);
       if (nw !== W || nh !== H) {
         W = nw;
         H = nh;
@@ -354,6 +356,7 @@
     function frame(now) {
       requestAnimationFrame(frame);
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+      if (G.perf) G.perf.update((now - last) / 1000);
       last = now;
       const m = G.game;
       if (m && (G.state === 'playing' || G.state === 'ended') && m.world) {

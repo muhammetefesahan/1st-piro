@@ -86,16 +86,16 @@
     announcer: true,
     callsign: 'Gölge-1',
     touchSens: 1.0,
-    pixel: 2,
+    pixel: 1,
     outline: true,
-    levels: 32,
+    levels: 64,
     bloom: true,
     photo: false,
     photoCaption: '',
     operator: 'kurt',
   };
   G.settings = Object.assign({}, SETTINGS_DEFAULT, G.store.get('settings', {}));
-  if (G.settings.v !== 2) {
+  if ((G.settings.v || 0) < 2) {
     // sürüm 2: daha keskin piksel varsayılanları
     G.settings.pixel = 2;
     G.settings.levels = 32;
@@ -294,6 +294,25 @@
       return false;
     }
   })();
+  // Telefon / tablet (dokunmatik ve küçük ekran): kalite ve düzen varsayılanları buna göre
+  G.isMobile = (() => {
+    try {
+      return G.isTouch && Math.min(screen.width, screen.height) < 900;
+    } catch (e) {
+      return G.isTouch;
+    }
+  })();
+
+  // Sürüm 3: sevimli (tatlı) görünüm varsayılanları — piksel efekti kapalı, telefonda orta kalite
+  if ((G.settings.v || 0) < 3) {
+    G.settings.pixel = 1;
+    G.settings.levels = 64;
+    G.settings.outline = true;
+    G.settings.bloom = true;
+    if (G.isMobile) G.settings.quality = 'orta';
+    G.settings.v = 3;
+    G.saveSettings();
+  }
 
   // Basit olay yayıcı
   const listeners = {};
