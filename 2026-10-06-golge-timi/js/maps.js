@@ -122,12 +122,17 @@
       rows: m.rows(),
       points: m.points,
       theme: {
-        skyTop: 0x2a3d66, skyHorizon: 0xf2a65a, skyBottom: 0x3a2f35,
-        fog: 0xc98a62, fogNear: 30, fogFar: 150,
-        sun: 0xffc48a, sunIntensity: 1.35, sunDir: [-0.55, 0.42, 0.35],
-        hemiSky: 0xa9b8d8, hemiGround: 0x5a4636, hemiIntensity: 0.62,
+        // şeker renkli gün batımı limanı: mor-mavi gök, şeftali ufuk, pembe-lila gölgeler
+        skyTop: 0x7a7cff, skyHorizon: 0xffb38a, skyBottom: 0xffc9a8,
+        fog: 0xffc4b0, fogNear: 45, fogFar: 200,
+        sun: 0xffead2, sunIntensity: 0.28, sunDir: [-0.72, 0.5, 0.18], sunSize: 0.08, sunDisk: 0xfff4d6,
+        hemiSky: 0xf0e8ff, hemiGround: 0xead8ea, hemiIntensity: 0.84,
         ground: 'asfalt', wall: 'beton', building: 'tugla', indoor: 'karo',
-        exposure: 1.05, sea: 'south', decor: 'cranes', clouds: 0.65, grade: { sat: 1.15, con: 1.08, tint: 0xfff0e0, lift: 0x0a0814, bloom: 0.7 },
+        wallColors: [0xffd3b6, 0xffe4c8], buildingColors: [0xffaaa5, 0xffd3b6, 0x9ad7ff, 0xcdb4ff], roofColors: [0xff8b94, 0x4ecdc4, 0xffb347],
+        coverColor: 0xfff1a8, railColor: 0x4ecdc4, poleColor: 0x8a78c0,
+        waterShallow: 0x6fe3d6, waterDeep: 0x3fb2d8, cloudColor: 0xfff0f4,
+        exposure: 1.0, sea: 'south', decor: 'cranes', clouds: 0.6,
+        grade: { sat: 1.12, con: 1.04, tint: 0xfff6f2, lift: 0x1e1030, bloom: 0.3, bloomThreshold: 0.88, vig: 0.26 },
       },
     };
   }
@@ -193,12 +198,16 @@
       rows: m.rows(),
       points: m.points,
       theme: {
-        skyTop: 0x3f86d6, skyHorizon: 0xe9d6b0, skyBottom: 0xb89a70,
-        fog: 0xe0cba4, fogNear: 45, fogFar: 190,
-        sun: 0xfff1d6, sunIntensity: 1.55, sunDir: [0.35, 0.85, 0.3],
-        hemiSky: 0xcfe0f5, hemiGround: 0x9a7a52, hemiIntensity: 0.7,
+        // güneşli çöl kasabası: gök mavisi, şeftali/pembe kerpiç evler, tereyağı kum
+        skyTop: 0x5fb8ff, skyHorizon: 0xbfe9ff, skyBottom: 0xffe2b0,
+        fog: 0xf4ecdc, fogNear: 55, fogFar: 230,
+        sun: 0xfff3dc, sunIntensity: 0.28, sunDir: [0.35, 0.85, 0.3], sunSize: 0.07,
+        hemiSky: 0xeeeeff, hemiGround: 0xf6dcd4, hemiIntensity: 0.84,
         ground: 'kum', wall: 'siva', building: 'siva', indoor: 'karo',
-        exposure: 1.0, decor: 'dunes', palms: true, clouds: 0.25, grade: { sat: 1.12, con: 1.1, tint: 0xfff4e4, lift: 0x080604, bloom: 0.55 },
+        wallColors: [0xffd9b8, 0xffe8cc], buildingColors: [0xffc8dd, 0xffd3b6, 0xa8e6cf, 0xffaaa5, 0x9ad7ff, 0xffe0c2], roofColors: [0xff8b94, 0xffb347, 0x4ecdc4],
+        coverColor: 0xffe0c2, cloudColor: 0xffffff,
+        exposure: 1.0, decor: 'dunes', palms: true, clouds: 0.4,
+        grade: { sat: 1.1, con: 1.04, tint: 0xfffaf2, lift: 0x180c1a, bloom: 0.25, bloomThreshold: 0.9, vig: 0.24 },
       },
     };
   }
@@ -257,12 +266,17 @@
       rows: m.rows(),
       points: m.points,
       theme: {
-        skyTop: 0x05070d, skyHorizon: 0x1b2638, skyBottom: 0x07090c,
-        fog: 0x121a26, fogNear: 18, fogFar: 110,
-        sun: 0x9fb8ff, sunIntensity: 0.55, sunDir: [0.3, 0.8, -0.4],
-        hemiSky: 0x50627f, hemiGround: 0x1a1d22, hemiIntensity: 0.55,
+        // sevimli gece üssü: mor gök, yıldızlar, kocaman ay, sıcak ışıklı pencereler
+        skyTop: 0x2b2f6b, skyHorizon: 0x6a5acd, skyBottom: 0x3a2f6b,
+        fog: 0x7464b4, fogNear: 50, fogFar: 200,
+        sun: 0xe8e6ff, sunIntensity: 0.3, sunDir: [0.3, 0.62, -0.5], sunSize: 0.09, sunDisk: 0xfff8e8,
+        hemiSky: 0xe2dcff, hemiGround: 0xd8b8c8, hemiIntensity: 0.76,
         ground: 'asfalt', wall: 'beton', building: 'metal', indoor: 'karo',
-        exposure: 1.25, night: true, stars: true, rain: true, lampLights: true, clouds: 0.85, grade: { sat: 0.95, con: 1.12, tint: 0xe4ecff, lift: 0x060a14, bloom: 0.9 },
+        wallColors: [0xb8d8f4, 0xc8ecdc], buildingColors: [0x9ad7ff, 0xa8e6cf, 0xffc8dd, 0xfff1a8, 0xcdb4ff], roofColors: [0xff8b94, 0x4ecdc4, 0xffb347],
+        coverColor: 0xd8ccff, poleColor: 0x9b8ac8, lampColor: 0xffe2b0, cloudColor: 0x9a8ae0,
+        leafColors: [0x5fc9a0, 0x4eb894, 0x72d6ae],
+        exposure: 1.0, night: true, stars: true, lampLights: true, windowGlow: true, clouds: 0.4,
+        grade: { sat: 1.16, con: 1.05, tint: 0xfff8fa, lift: 0x120a2a, bloom: 0.38, bloomThreshold: 0.88, vig: 0.3, vigCol: 0xb8a4e0 },
       },
     };
   }
@@ -346,12 +360,16 @@
         4: { cost: 1000, name: 'Doğu Geçidi' },
       },
       theme: {
-        skyTop: 0x06040a, skyHorizon: 0x2a1530, skyBottom: 0x050407,
-        fog: 0x1a1020, fogNear: 6, fogFar: 70,
-        sun: 0x8f9cff, sunIntensity: 0.35, sunDir: [0.4, 0.8, 0.2],
-        hemiSky: 0x5a4a6a, hemiGround: 0x1a1414, hemiIntensity: 0.5,
+        // oyuncu nane/beyaz laboratuvar, pembe vurgular; alacakaranlık mor gök — hafif ürkütücü ama tatlı
+        skyTop: 0x2e2563, skyHorizon: 0x8e6bd6, skyBottom: 0x2a2050,
+        fog: 0x5e4e94, fogNear: 14, fogFar: 95,
+        sun: 0xc8d4ff, sunIntensity: 0.2, sunDir: [0.4, 0.8, 0.2], sunSize: 0.08, sunDisk: 0xf6f0ff,
+        hemiSky: 0xe4f0ff, hemiGround: 0xa898c8, hemiIntensity: 0.58,
         ground: 'toprak', wall: 'beton', building: 'labduvar', indoor: 'labzemin',
-        exposure: 1.3, night: true, stars: true, flashlight: true, zombieLights: true, clouds: 0.55, grade: { sat: 0.9, con: 1.15, tint: 0xf4e8ff, lift: 0x0e0614, bloom: 0.95 },
+        wallColors: [0xb8e8d8, 0xc8dcf4], buildingColors: [0xd2f7e8, 0xeefff7, 0xffe2ef], roofColors: [0xff9ec4, 0xa8e6cf], tintPerRect: true,
+        coverColor: 0xc8f0e0, ceilColor: 0xf4fff9, cloudColor: 0x8a7ad0,
+        exposure: 0.95, night: true, stars: true, flashlight: true, zombieLights: true, clouds: 0.45,
+        grade: { sat: 1.08, con: 1.05, tint: 0xf6f2ff, lift: 0x1e1034, bloom: 0.18, bloomThreshold: 0.94, vig: 0.32, vigCol: 0xb09ad8 },
       },
     };
   }
@@ -396,12 +414,16 @@
       rows: m.rows(),
       points: m.points,
       theme: {
-        skyTop: 0x4a87c9, skyHorizon: 0xcfe0e8, skyBottom: 0x7d8a6a,
-        fog: 0xc4d4dc, fogNear: 60, fogFar: 240,
-        sun: 0xfff5e0, sunIntensity: 1.4, sunDir: [-0.3, 0.8, 0.4],
-        hemiSky: 0xd4e4f4, hemiGround: 0x5e6b45, hemiIntensity: 0.7,
+        // pırıl pırıl eğitim parkı: masmavi gök, yemyeşil çim, şeker renkli bloklar
+        skyTop: 0x5fb8ff, skyHorizon: 0xbfe9ff, skyBottom: 0xd8f0c0,
+        fog: 0xd8f0ff, fogNear: 70, fogFar: 270,
+        sun: 0xfff6e0, sunIntensity: 0.28, sunDir: [-0.3, 0.8, 0.4], sunSize: 0.07,
+        hemiSky: 0xeef0ff, hemiGround: 0xdcefd0, hemiIntensity: 0.84,
         ground: 'cim', wall: 'beton', building: 'beton', indoor: 'karo',
-        exposure: 1.0, decor: 'hills', clouds: 0.5, grade: { sat: 1.12, con: 1.05, tint: 0xffffff, lift: 0x000000, bloom: 0.45 },
+        wallColors: [0x9ad7ff, 0xa8e6cf, 0xffaaa5, 0xcdb4ff], buildingColors: [0xffd3b6, 0x9ad7ff], roofColors: [0xff8b94, 0x4ecdc4],
+        coverColor: 0xfff1a8, cloudColor: 0xffffff,
+        exposure: 1.0, decor: 'hills', clouds: 0.55,
+        grade: { sat: 1.1, con: 1.04, tint: 0xffffff, lift: 0x100a20, bloom: 0.24, bloomThreshold: 0.9, vig: 0.22 },
       },
     };
   }

@@ -6,6 +6,7 @@
   const C = (G.combat = { projectiles: [] });
   const tmp = new THREE.Vector3();
   const tmp2 = new THREE.Vector3();
+  const tmp3 = new THREE.Vector3();
 
   C.reset = function () {
     for (const p of C.projectiles) if (p.mesh && p.mesh.parent) p.mesh.parent.remove(p.mesh);
@@ -83,9 +84,11 @@
         if (best.isEnt) {
           G.fx.impact(px, py, pz, -dx, -dy, -dz, true);
         } else if (G.fx.blood) {
-          const col = best.kind === 'zombie' || best.kind === 'dog' ? [0.35, 0.08, 0.05] : null;
+          // sevimli isabet: takım renginde konfeti + yıldız
+          const col = G.fx.tintFor ? G.fx.tintFor(best) : best.kind === 'zombie' || best.kind === 'dog' ? [0.35, 0.08, 0.05] : null;
           G.fx.blood(px, py, pz, dx, dy, dz, bestPart === 'head' ? 1.6 : 1, col);
         }
+        if (shooter && shooter.isPlayer && G.fx.damageNumber) G.fx.damageNumber(point, dmg, { head: bestPart === 'head', kill: killed, target: best });
         if (shooter && shooter.onHitTarget) shooter.onHitTarget(best, bestPart, killed, info, dmg);
         return { target: best, part: bestPart, killed, point, dist, world: false };
       }
@@ -122,7 +125,8 @@
       }
       c.burnTick = (c.burnTick || 0) - dt;
       const ch = c.chest ? c.chest(tmp) : c.pos;
-      if (G.fx.add) G.fx.add.add(ch.x + U.rand(-0.2, 0.2), ch.y + U.rand(-0.4, 0.4), ch.z + U.rand(-0.2, 0.2), 0, U.rand(1, 2), 0, 0.4, 0.25, 0.05, 1, 0.5, 0.1, 0.9, -1, 1);
+      if (G.fx.flameLick) G.fx.flameLick(ch.x + U.rand(-0.2, 0.2), ch.y + U.rand(-0.4, 0.4), ch.z + U.rand(-0.2, 0.2));
+      else if (G.fx.add) G.fx.add.add(ch.x + U.rand(-0.2, 0.2), ch.y + U.rand(-0.4, 0.4), ch.z + U.rand(-0.2, 0.2), 0, U.rand(1, 2), 0, 0.4, 0.25, 0.05, 1, 0.5, 0.1, 0.9, -1, 1);
       if (c.burnTick <= 0) {
         c.burnTick = 0.25;
         const zm = c.kind === 'zombie' || c.kind === 'dog';
@@ -178,11 +182,13 @@
   // Patlama hasarı (siper kontrollü)
   C.explode = function (pos, radius, maxDmg, owner, opts) {
     const o = opts || {};
-    G.fx.explosion(pos, radius, { plasma: o.plasma, frost: o.frost });
+    G.fx.explosion(pos, radius, { plasma: o.plasma, frost: o.frost, stun: o.stun });
     if (G.game && G.game.net && owner && (owner.isPlayer || (owner.creditTo && owner.creditTo.isPlayer))) G.game.net.explosionVisual(pos);
     if (!o.silent) G.audio.play(o.plasma ? 'impact' : o.stun ? 'stunBang' : 'explosion', { pos, ref: 22, priority: true, vol: o.plasma ? 0.8 : 1 });
     const list = hittables();
     const origin = tmp2.set(pos.x, pos.y + 0.35, pos.z);
+    // hasar sayısı yalnızca yerel oyuncunun (veya serisinin) patlamalarında
+    const showNums = !!(owner && (owner.isPlayer || (owner.creditTo && owner.creditTo.isPlayer)) && G.fx.damageNumber);
     for (let i = 0; i < list.length; i++) {
       const h = list[i];
       if (!h.alive) continue;
@@ -210,7 +216,8 @@
       }
       let dmg = maxDmg * U.clamp(1.12 - d / radius, 0, 1);
       if (self) dmg *= 0.55;
-      h.takeDamage(dmg, owner, {
+      const hp0 = h.health, cx = c.x, cy = c.y, cz = c.z;
+      const killed = h.takeDamage(dmg, owner, {
         weapon: o.weaponName || 'Patlama',
         weaponId: o.weaponId,
         explosive: true,
@@ -219,6 +226,7 @@
         from: pos.clone(),
         streak: o.streak,
       });
+      if (showNums && !self && (killed || h.health !== hp0)) G.fx.damageNumber(tmp3.set(cx, cy, cz), dmg, { kill: killed, target: h });
     }
     // zincirleme variller
     if (!o.stun && G.world) {
@@ -233,32 +241,53 @@
   // Mermiler: el bombaları, roket, plazma, fırlatma bıçağı
   // ------------------------------------------------------------------
   const projGeo = {};
+  // oyuncak görünümlü mermiler: toon malzemeli şeker renkleri
+  function pm(key, color, emissive) {
+    if (G.toonMat) return G.toonMat('proj-' + key, emissive ? { color, emissive, emissiveIntensity: 0.6 } : { color });
+    return G.gunMat(color);
+  }
   function projMesh(kind) {
     let m;
     if (kind === 'rocket') {
-      m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 6).rotateX(Math.PI / 2), G.gunMat(0x5d6b45));
+      // yuvarlak burunlu oyuncak roket
+      m = new THREE.Group();
+      const body = new THREE.Mesh((projGeo.rb || (projGeo.rb = new THREE.CylinderGeometry(0.07, 0.07, 0.36, 8).rotateX(Math.PI / 2))), pm('rocket', 0xff8b94));
+      const nose = new THREE.Mesh((projGeo.rn || (projGeo.rn = new THREE.SphereGeometry(0.07, 8, 6))), pm('rocket-nose', 0xfff1a8));
+      nose.position.z = 0.18;
+      const fin = new THREE.Mesh((projGeo.rf || (projGeo.rf = new THREE.BoxGeometry(0.22, 0.02, 0.1))), pm('rocket-fin', 0x4ecdc4));
+      fin.position.z = -0.16;
+      const fin2 = fin.clone();
+      fin2.rotation.z = Math.PI / 2;
+      m.add(body, nose, fin, fin2);
     } else if (kind === 'plasma') {
-      m = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0x70ffb0 }));
+      m = new THREE.Mesh((projGeo.pl || (projGeo.pl = new THREE.SphereGeometry(0.13, 10, 8))), new THREE.MeshBasicMaterial({ color: 0x8dffc8 }));
     } else if (kind === 'knife') {
-      m = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.3), G.gunMat(0xcfd4d8, { metal: 0.9, rough: 0.2 }));
+      m = new THREE.Mesh((projGeo.kn || (projGeo.kn = new THREE.BoxGeometry(0.04, 0.04, 0.3))), pm('knife', 0xcdb4ff));
     } else if (kind === 'bolt') {
       m = new THREE.Group();
-      m.add(new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.42), G.gunMat(0x8a8e92, { metal: 0.9, rough: 0.3 })));
-      const fl = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.003, 0.06), G.gunMat(0xc02020, { metal: 0, rough: 0.8 }));
+      m.add(new THREE.Mesh((projGeo.bo || (projGeo.bo = new THREE.BoxGeometry(0.02, 0.02, 0.42))), pm('bolt', 0xffd23f)));
+      const fl = new THREE.Mesh((projGeo.bf || (projGeo.bf = new THREE.BoxGeometry(0.06, 0.006, 0.07))), pm('bolt-fl', 0xff6fa8));
       fl.position.z = 0.18;
       m.add(fl);
     } else if (kind === 'flare') {
-      m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff5a30 }));
+      m = new THREE.Mesh((projGeo.fl || (projGeo.fl = new THREE.SphereGeometry(0.07, 8, 6))), new THREE.MeshBasicMaterial({ color: 0xff8fb1 }));
     } else if (kind === 'gl') {
-      m = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.06, 8).rotateX(Math.PI / 2), G.gunMat(0x4a5a3a));
+      m = new THREE.Mesh((projGeo.gl || (projGeo.gl = new THREE.SphereGeometry(0.05, 8, 6))), pm('gl', 0xffb347));
     } else if (kind === 'frost') {
-      m = new THREE.Mesh(new THREE.OctahedronGeometry(0.13), new THREE.MeshBasicMaterial({ color: 0x9fefff }));
+      m = new THREE.Mesh((projGeo.fr || (projGeo.fr = new THREE.OctahedronGeometry(0.13))), new THREE.MeshBasicMaterial({ color: 0xbff6ff }));
     } else {
-      const col = kind === 'smoke' ? 0x606a60 : kind === 'stun' ? 0x3a5a7a : kind === 'semtex' ? 0x8a8f50 : 0x3d4a2a;
-      if (!projGeo.g) projGeo.g = new THREE.SphereGeometry(0.07, 8, 6);
-      m = new THREE.Mesh(projGeo.g, G.gunMat(col));
+      // el bombaları: yuvarlak şeker toplar + minik kapak
+      const col = kind === 'smoke' ? 0xcdb4ff : kind === 'stun' ? 0x9ad7ff : kind === 'semtex' ? 0xff8b94 : 0x7ed957;
+      if (!projGeo.g) {
+        projGeo.g = new THREE.SphereGeometry(0.085, 10, 8);
+        projGeo.cap = new THREE.CylinderGeometry(0.03, 0.035, 0.05, 8);
+        projGeo.cap.translate(0, 0.095, 0);
+      }
+      m = new THREE.Group();
+      m.add(new THREE.Mesh(projGeo.g, pm('nade-' + kind, col)));
+      m.add(new THREE.Mesh(projGeo.cap, pm('nade-cap', 0xfff1a8)));
     }
-    m.castShadow = true;
+    m.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     return m;
   }
 
@@ -347,7 +376,8 @@
                   const nm = p.kind === 'knife' ? 'Fırlatma Bıçağı' : p.stats.name;
                   const killed = ch.takeDamage(dmg, p.owner, { weapon: nm, weaponId: p.kind === 'knife' ? 'knife' : p.stats.id, headshot: r.part === 'head', dir: new THREE.Vector3(dx, dy, dz), point: p.pos.clone() });
                   if (p.kind === 'flare' && ch.alive) C.ignite(ch, p.owner, 5, nm);
-                  G.fx.blood(p.pos.x, p.pos.y, p.pos.z, dx, dy, dz, 1);
+                  G.fx.blood(p.pos.x, p.pos.y, p.pos.z, dx, dy, dz, 1, G.fx.tintFor ? G.fx.tintFor(ch) : null);
+                  if (p.owner && p.owner.isPlayer && G.fx.damageNumber) G.fx.damageNumber(p.pos, dmg, { head: r.part === 'head', kill: killed, target: ch });
                   if (p.owner && p.owner.onHitTarget) p.owner.onHitTarget(ch, r.part, killed, { weapon: nm }, dmg);
                   remove = true;
                 } else if (p.kind === 'semtex') {
