@@ -20,3 +20,12 @@
 - **Arayüz:** sekmeli üst menü (Oyna, Silahlar, Operatörler, İlerleme, Ayarlar), harita görüntülü mod kartları (harita bir kez kurulup görüntü hattından geçirilerek üretilir), yükleme ekranı, maç sonunda silah ilerlemesi ve günlük görevler, tuş atama.
 - **HUD:** pusula (bayrak ve hedef işaretleriyle), silah silueti, mermi çubukları, piksel ekipman ikonları, öldürme akışında silah simgeleri, "şarjör değiştir" uyarısı.
 - Testler: `npm test` 12 test; headless Chromium ile tüm ekranlar, modlar, hikâye görevleri, iki sekmeli online ve telefon görünümü.
+
+## Sürüm 3 — tatlı görünüm ve telefon
+
+- Görünüm baştan çizildi: pastel renkler, çizgi film (toon) gölgelendirme, mor dış hatlar, yumuşak parlama, kenar yumuşatma. Eski piksel görünümü Ayarlar'da "piksel boyutu" ile hâlâ açılabilir.
+- Büyük kafalı sevimli karakterler, sevimli zombiler ve zombi köpek, şeker renkli oyuncak silahlar, kalp/yıldız desenli kamuflajlar.
+- Haritalar: pastel binalar, oyuncak vinçler, lolipop ağaçlar, flamalar, balonlar; zombi haritasında oyuncak makineler, hediye paketi gizem kutusu.
+- Efektler: kan yerine yıldız ve konfeti, "puf" bulutları, uçan hasar sayıları; sesler daha sevimli.
+- Telefon: ikonlu yeni dokunmatik kontroller, beliren analog çubuk, otomatik koşu, yardımcı nişan, otomatik ateş, jiroskop, titreşim, sol el düzeni; uyarlanır çözünürlük; yatay ekran kilidi ve ekranın kapanmaması.
+- Altı paralel ekip (dünya, süsler, karakterler, efektler, arayüz, telefon) ayrı çalışma kopyalarında çalıştı; her ekibin işi ekran görüntüleriyle denetlendi.
