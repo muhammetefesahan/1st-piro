@@ -68,7 +68,7 @@
       }
       // fener
       if (def.theme.flashlight) {
-        const spot = new THREE.SpotLight(0xfff2d8, 0.85, 26, 0.5, 0.65, 1.6);
+        const spot = new THREE.SpotLight(0xfff2d8, 0.65, 26, 0.5, 0.65, 1.6);
         spot.position.set(0, 0, 0);
         const tgt = new THREE.Object3D();
         tgt.position.set(0, 0, -1);

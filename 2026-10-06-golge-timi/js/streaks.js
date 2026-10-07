@@ -13,12 +13,145 @@
     strikes: [],
   });
 
+  // ---------------- Oyuncak model yardımcıları ----------------
+  // toon malzemeler önbellekli; parçalar G.mergeGroup ile malzeme başına tek çizime iner.
+  function tm(key, color, o) {
+    if (G.toonMat) return G.toonMat('streak-' + key, Object.assign({ color }, o || {}));
+    return G.gunMat(color);
+  }
+  function teamCols(team) {
+    if (team === 0) return { main: 0x4cc3ff, acc: 0xf5c02e };
+    if (team === 1) return { main: 0xff6b6b, acc: 0x9b5de5 };
+    return { main: 0xff6fa8, acc: 0x4ecdc4 };
+  }
+  function mesh(geo, mat, x, y, z) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x || 0, y || 0, z || 0);
+    return m;
+  }
+  function merge(grp, keep) {
+    if (G.mergeGroup) G.mergeGroup(grp, keep || []);
+    return grp;
+  }
+  // kocaman sevimli göz (beyaz + plum bebek + parıltı)
+  function cuteEye(r) {
+    const g = new THREE.Group();
+    g.add(mesh(new THREE.SphereGeometry(r, 12, 10), tm('eye-w', 0xffffff, { emissive: 0x555555, emissiveIntensity: 0.4 })));
+    const pupil = mesh(new THREE.SphereGeometry(r * 0.55, 10, 8), tm('eye-p', 0x3b2a4a), 0, 0, -r * 0.62);
+    pupil.scale.z = 0.5;
+    g.add(pupil);
+    g.add(mesh(new THREE.SphereGeometry(r * 0.18, 6, 5), tm('eye-hl', 0xffffff, { emissive: 0xffffff, emissiveIntensity: 1 }), r * 0.22, r * 0.22, -r * 0.92));
+    return g;
+  }
+  function shadowOn(grp) {
+    if (G.settings.quality === 'dusuk') return;
+    grp.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+  }
+
+  // İHA: pervaneleri dönen sevimli dron
+  function buildDrone(team) {
+    const c = teamCols(team);
+    const grp = new THREE.Group();
+    const body = mesh(new THREE.SphereGeometry(0.9, 14, 10), tm('dr-body' + team, c.main));
+    body.scale.set(1, 0.62, 1);
+    grp.add(body);
+    grp.add(mesh(new THREE.SphereGeometry(0.55, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), tm('dr-dome', 0xf4ece2), 0, 0.42, 0));
+    const eye = cuteEye(0.32);
+    eye.position.set(0, -0.12, -0.78);
+    grp.add(eye);
+    grp.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 6), tm('dr-ant', 0x3b2a4a), 0, 1.05, 0));
+    grp.add(mesh(new THREE.SphereGeometry(0.11, 8, 6), tm('dr-acc' + team, c.acc), 0, 1.32, 0));
+    const props = [];
+    for (let i = 0; i < 4; i++) {
+      const a = Math.PI / 4 + (i * Math.PI) / 2;
+      const ax = Math.cos(a) * 1.35, az = Math.sin(a) * 1.35;
+      const arm = mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.2, 6), tm('dr-arm', 0xf4ece2), Math.cos(a) * 0.75, 0.05, Math.sin(a) * 0.75);
+      arm.rotation.set(0, -a, Math.PI / 2, 'YXZ');
+      grp.add(arm);
+      grp.add(mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.22, 10), tm('dr-acc' + team, c.acc), ax, 0.1, az));
+      const prop = new THREE.Group();
+      prop.name = 'prop' + i;
+      prop.position.set(ax, 0.26, az);
+      const blade = mesh(new THREE.BoxGeometry(1.1, 0.04, 0.18), tm('dr-blade', 0xffffff));
+      prop.add(blade);
+      const blade2 = blade.clone();
+      blade2.rotation.y = Math.PI / 2;
+      prop.add(blade2);
+      prop.add(mesh(new THREE.SphereGeometry(0.08, 6, 5), tm('dr-hub', 0xff6fa8)));
+      grp.add(prop);
+      merge(prop, []);
+      props.push(prop);
+    }
+    merge(grp, ['prop0', 'prop1', 'prop2', 'prop3']);
+    grp.scale.setScalar(1.6);
+    return { grp, props };
+  }
+
+  // Hava saldırısı uçağı: tombul pervaneli oyuncak uçak
+  function buildPlane(team) {
+    const c = teamCols(team);
+    const grp = new THREE.Group();
+    const body = mesh(new THREE.SphereGeometry(1, 14, 10), tm('pl-body' + team, c.main));
+    body.scale.set(1.15, 1.1, 3.4);
+    grp.add(body);
+    grp.add(mesh(new THREE.SphereGeometry(0.75, 12, 8), tm('pl-glass', 0x9ad7ff, { emissive: 0x2a5a80, emissiveIntensity: 0.4 }), 0, 0.75, 0.9));
+    grp.add(mesh(new THREE.BoxGeometry(9, 0.32, 1.9), tm('pl-acc' + team, c.acc), 0, -0.1, 0.2));
+    for (const sx of [-1, 1]) grp.add(mesh(new THREE.SphereGeometry(0.42, 10, 8), tm('pl-acc' + team, c.acc), sx * 4.5, -0.1, 0.2));
+    grp.add(mesh(new THREE.BoxGeometry(3.4, 0.22, 1), tm('pl-acc' + team, c.acc), 0, 0.2, -3.0));
+    grp.add(mesh(new THREE.BoxGeometry(0.22, 1.5, 1.1), tm('pl-body' + team, c.main), 0, 1.0, -3.0));
+    grp.add(mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.4, 12).rotateX(Math.PI / 2), tm('pl-nose', 0xf4ece2), 0, 0, 3.45));
+    const prop = new THREE.Group();
+    prop.name = 'prop';
+    prop.position.set(0, 0, 3.75);
+    const pb = mesh(new THREE.BoxGeometry(2.6, 0.26, 0.08), tm('pl-blade', 0x3b2a4a));
+    prop.add(pb);
+    const pb2 = pb.clone();
+    pb2.rotation.z = Math.PI / 2;
+    prop.add(pb2);
+    prop.add(mesh(new THREE.SphereGeometry(0.22, 8, 6), tm('pl-hub', 0xff6fa8)));
+    grp.add(prop);
+    merge(prop, []);
+    merge(grp, ['prop']);
+    return { grp, prop };
+  }
+
+  // yuvarlak çizgi film bombası (paylaşılan geometri/malzeme)
+  const bombKit = {};
+  function buildBomb() {
+    if (!bombKit.ball) {
+      bombKit.ball = new THREE.SphereGeometry(0.42, 12, 10);
+      bombKit.cap = new THREE.CylinderGeometry(0.14, 0.16, 0.22, 8);
+      bombKit.cap.translate(0, 0.46, 0);
+      bombKit.fin = new THREE.BoxGeometry(0.5, 0.36, 0.06);
+      bombKit.fin.translate(0, 0.62, 0);
+      bombKit.hl = new THREE.SphereGeometry(0.09, 6, 5);
+    }
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(bombKit.ball, tm('bomb', 0x6a5a8a)));
+    g.add(new THREE.Mesh(bombKit.cap, tm('bomb-cap', 0xffd23f)));
+    const f1 = new THREE.Mesh(bombKit.fin, tm('bomb-fin', 0xff6fa8));
+    g.add(f1);
+    const f2 = f1.clone();
+    f2.rotation.y = Math.PI / 2;
+    g.add(f2);
+    // parıltı noktası
+    const hl = new THREE.Mesh(bombKit.hl, tm('eye-hl', 0xffffff, { emissive: 0xffffff, emissiveIntensity: 1 }));
+    hl.position.set(-0.2, -0.16, 0.3);
+    g.add(hl);
+    g.scale.setScalar(1.4);
+    return g;
+  }
+
   S.reset = function () {
-    for (const e of S.ents) if (e.mesh && e.mesh.parent) e.mesh.parent.remove(e.mesh);
+    for (const e of S.ents) {
+      if (e.mesh && e.mesh.parent) e.mesh.parent.remove(e.mesh);
+      if (e.jet && e.jet.parent) e.jet.parent.remove(e.jet);
+    }
     S.ents.length = 0;
     S.uav = { 0: 0, 1: 0 };
     S.inventory = [0, 0, 0, 0];
     S.targeting = null;
+    for (const s of S.strikes) if (s.bomb && s.bomb.parent) s.bomb.parent.remove(s.bomb);
     S.strikes.length = 0;
     if (S.marker && S.marker.parent) S.marker.parent.remove(S.marker);
     S.marker = null;
@@ -69,6 +202,7 @@
 
   S.callUAV = function (team, who) {
     S.uav[team] = Math.max(S.uav[team], G.time) + 30;
+    spawnDrone(team);
     const pt = G.game.player ? G.game.player.team : 0;
     if (team === pt) {
       G.hud && G.hud.medal(who === 'player' ? 'İHA çevrimiçi' : 'Dost İHA çevrimiçi');
@@ -79,6 +213,35 @@
     }
     G.audio.play('uav', { priority: true });
   };
+
+  // gökyüzünde daire çizen oyuncak dron (yalnızca görsel)
+  function spawnDrone(team) {
+    const w = G.world;
+    if (!w || !w.group || (team !== 0 && team !== 1)) return;
+    for (const e of S.ents) if (e.isDrone && e.team === team) return;
+    const d = buildDrone(team);
+    w.group.add(d.grp);
+    const sx = w.sizeX || 60, sz = w.sizeZ || 60;
+    S.ents.push({ isDrone: true, team, mesh: d.grp, props: d.props, cx: sx / 2, cz: sz / 2, rad: Math.min(sx, sz) * 0.28, ang: team === 0 ? 0 : Math.PI, born: G.time });
+    d.grp.position.set(sx / 2, 40, sz / 2);
+  }
+  function updateDrone(e, dt) {
+    const left = (S.uav[e.team] || 0) - G.time;
+    e.ang += dt * 0.25;
+    const m = e.mesh;
+    const x = e.cx + Math.cos(e.ang) * e.rad, z = e.cz + Math.sin(e.ang) * e.rad;
+    // giriş/çıkışta yükselip alçalır
+    const k = Math.min(1, (G.time - e.born) / 2, Math.max(0, left) / 2);
+    m.position.set(x, 22 + (1 - k) * 18 + Math.sin(G.time * 2) * 0.4, z);
+    // uçuş yönüne bak (yörünge teğeti)
+    m.rotation.set(0, Math.PI - e.ang, Math.sin(G.time * 1.7) * 0.08);
+    for (const p of e.props) p.rotation.y += dt * 30;
+    if (left <= -2) {
+      if (m.parent) m.parent.remove(m);
+      return false;
+    }
+    return true;
+  }
 
   S.uavActive = function (team) {
     return G.time < (S.uav[team] || 0);
@@ -95,7 +258,7 @@
     const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
     const hit = G.world.raycast(cam.position.x, cam.position.y, cam.position.z, dir.x, dir.y, dir.z, 120);
     if (!S.marker) {
-      S.marker = new THREE.Mesh(new THREE.RingGeometry(1.5, 2.2, 24), new THREE.MeshBasicMaterial({ color: 0xff3020, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthTest: false }));
+      S.marker = new THREE.Mesh(new THREE.RingGeometry(1.5, 2.2, 24), new THREE.MeshBasicMaterial({ color: 0xff6fa8, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthTest: false }));
       S.marker.rotation.x = -Math.PI / 2;
       S.marker.renderOrder = 20;
       G.world.group.add(S.marker);
@@ -121,21 +284,17 @@
     const t0 = G.time + 2.4;
     for (let i = 0; i < 7; i++) {
       const o = (i - 3) * 3.6;
-      S.strikes.push({ at: t0 + i * 0.11, pos: new THREE.Vector3(target.x + fx * o + U.rand(-0.6, 0.6), 0.3, target.z + fz * o + U.rand(-0.6, 0.6)), credit });
+      S.strikes.push({ at: t0 + i * 0.11, pos: new THREE.Vector3(target.x + fx * o + U.rand(-0.6, 0.6), 0.3, target.z + fz * o + U.rand(-0.6, 0.6)), credit, fx, fz });
     }
-    // jet
-    const jet = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.ConeGeometry(0.8, 7, 6).rotateX(-Math.PI / 2), G.gunMat(0x5a6068));
-    jet.add(body);
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(7, 0.15, 2), G.gunMat(0x4a5058));
-    wing.position.z = 1;
-    jet.add(wing);
-    const start = new THREE.Vector3(target.x - fx * 160, 40, target.z - fz * 160);
-    const end = new THREE.Vector3(target.x + fx * 160, 40, target.z + fz * 160);
+    // tombul oyuncak uçak
+    const pl = buildPlane(owner.team);
+    const jet = pl.grp;
+    const start = new THREE.Vector3(target.x - fx * 160, 30, target.z - fz * 160);
+    const end = new THREE.Vector3(target.x + fx * 160, 30, target.z + fz * 160);
     jet.position.copy(start);
     jet.lookAt(end);
     G.world.group.add(jet);
-    const ent = { jet, start, end, t0: G.time, dur: 4.4, isJet: true };
+    const ent = { jet, prop: pl.prop, start, end, t0: G.time, dur: 4.4, isJet: true };
     S.ents.push(ent);
     setTimeout(() => G.audio.play('jet', { priority: true }), 900);
     const enemyOfPlayer = G.game.player && G.game.canHurt(owner, G.game.player) && owner !== G.game.player;
@@ -148,26 +307,41 @@
 
   // ---------------- Nöbetçi taret ----------------
   S.spawnSentry = function (owner, pos) {
+    const c = teamCols(owner.team);
     const grp = new THREE.Group();
-    const leg = G.gunMat(0x3a3f35);
+    // tombul üç ayak + yuvarlak taban
+    const legM = tm('se-leg', 0xf4ece2);
     for (let i = 0; i < 3; i++) {
-      const l = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.8, 0.06), leg);
-      l.position.set(Math.cos((i * Math.PI * 2) / 3) * 0.3, 0.35, Math.sin((i * Math.PI * 2) / 3) * 0.3);
-      l.rotation.z = Math.cos((i * Math.PI * 2) / 3) * 0.35;
-      l.rotation.x = -Math.sin((i * Math.PI * 2) / 3) * 0.35;
+      const a = (i * Math.PI * 2) / 3;
+      const l = mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.62, 8), legM, Math.cos(a) * 0.24, 0.28, Math.sin(a) * 0.24);
+      l.rotation.z = Math.cos(a) * 0.4;
+      l.rotation.x = -Math.sin(a) * 0.4;
       grp.add(l);
+      grp.add(mesh(new THREE.SphereGeometry(0.12, 8, 6), tm('se-foot', 0x3b2a4a), Math.cos(a) * 0.36, 0.06, Math.sin(a) * 0.36));
     }
+    grp.add(mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.16, 14), tm('se-acc' + owner.team, c.acc), 0, 0.6, 0));
     const head = new THREE.Group();
-    head.position.y = 0.85;
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.35, 0.6), G.gunMat(0x4a5040));
-    head.add(box);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 6).rotateX(Math.PI / 2), G.gunMat(0x111111));
-    barrel.position.z = -0.55;
-    head.add(barrel);
-    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.02), new THREE.MeshBasicMaterial({ color: owner.team === 0 ? 0x4cc3ff : 0xff4d3d }));
-    eye.position.set(0, 0.08, -0.31);
+    head.name = 'head';
+    head.position.y = 0.92;
+    const ball = mesh(new THREE.SphereGeometry(0.3, 16, 12), tm('se-body' + owner.team, c.main));
+    ball.scale.set(1, 0.9, 1.1);
+    head.add(ball);
+    // şeker çizgili namlu + yuvarlak ağız
+    head.add(mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 10).rotateX(Math.PI / 2), tm('se-barrel', 0xf4ece2), 0, -0.04, -0.48));
+    for (const z of [-0.36, -0.56]) head.add(mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.07, 10).rotateX(Math.PI / 2), tm('se-stripe', 0xff6fa8), 0, -0.04, z));
+    head.add(mesh(new THREE.TorusGeometry(0.08, 0.035, 6, 12), tm('se-acc' + owner.team, c.acc), 0, -0.04, -0.74));
+    // sevimli göz
+    const eye = cuteEye(0.12);
+    eye.position.set(0, 0.12, -0.26);
     head.add(eye);
+    // anten + yan "kulaklar"
+    head.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.28, 5), tm('dr-ant', 0x3b2a4a), 0.12, 0.38, 0.06));
+    head.add(mesh(new THREE.SphereGeometry(0.06, 8, 6), tm('se-acc' + owner.team, c.acc), 0.12, 0.54, 0.06));
+    for (const sx of [-1, 1]) head.add(mesh(new THREE.SphereGeometry(0.1, 8, 6), tm('se-acc' + owner.team, c.acc), sx * 0.3, 0.05, 0));
     grp.add(head);
+    merge(head, []);
+    merge(grp, ['head']);
+    shadowOn(grp);
     grp.position.copy(pos);
     G.world.group.add(grp);
     const ent = {
@@ -252,31 +426,61 @@
 
   // ---------------- Saldırı helikopteri ----------------
   S.spawnHeli = function (owner) {
+    const c = teamCols(owner.team);
     const grp = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.6, 4.2), G.gunMat(owner.team === 0 ? 0x3d4a3a : 0x3a3a40));
+    // yuvarlak kabin
+    const body = mesh(new THREE.SphereGeometry(1.2, 16, 12), tm('he-body' + owner.team, c.main));
+    body.scale.set(1, 0.95, 1.6);
     grp.add(body);
-    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 4), G.gunMat(0x2d342b));
-    tail.position.set(0, 0.3, 3.8);
-    grp.add(tail);
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.8, 1.2), new THREE.MeshStandardMaterial({ color: 0x1a2a3a, metalness: 0.8, roughness: 0.1 }));
-    glass.position.set(0, 0.2, -2.1);
+    const glass = mesh(new THREE.SphereGeometry(0.95, 14, 10), tm('pl-glass', 0x9ad7ff, { emissive: 0x2a5a80, emissiveIntensity: 0.4 }), 0, 0.28, -0.95);
+    glass.scale.set(0.95, 0.8, 0.8);
     grp.add(glass);
-    const rotor = new THREE.Mesh(new THREE.BoxGeometry(9, 0.06, 0.4), G.gunMat(0x111111));
-    rotor.position.y = 1.05;
-    grp.add(rotor);
-    const rotor2 = rotor.clone();
-    rotor2.rotation.y = Math.PI / 2;
-    grp.add(rotor2);
-    const gun = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 1), G.gunMat(0x111111));
-    gun.position.set(0, -0.9, -1.8);
-    grp.add(gun);
+    // kuyruk
+    grp.add(mesh(new THREE.CylinderGeometry(0.16, 0.34, 3.4, 10).rotateX(Math.PI / 2), tm('he-body' + owner.team, c.main), 0, 0.35, 3.2));
+    grp.add(mesh(new THREE.BoxGeometry(0.16, 1.0, 0.6), tm('he-acc' + owner.team, c.acc), 0, 0.75, 4.8));
+    grp.add(mesh(new THREE.BoxGeometry(1.4, 0.12, 0.45), tm('he-acc' + owner.team, c.acc), 0, 0.35, 4.6));
+    // kızaklar
+    const skidM = tm('se-leg', 0xf4ece2);
+    for (const sx of [-1, 1]) {
+      grp.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.2, 8).rotateX(Math.PI / 2), skidM, sx * 0.9, -1.4, 0));
+      for (const z of [-0.7, 0.7]) grp.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 6), skidM, sx * 0.75, -1.15, z));
+    }
+    // rotor direği + göbek
+    grp.add(mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.5, 8), tm('dr-ant', 0x3b2a4a), 0, 1.2, 0));
+    grp.add(mesh(new THREE.SphereGeometry(0.26, 10, 8), tm('he-acc' + owner.team, c.acc), 0, 1.48, 0));
+    // burun silahı (oyuncak)
+    grp.add(mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.8, 8).rotateX(Math.PI / 2), tm('se-barrel', 0xf4ece2), 0, -0.9, -1.6));
+    grp.add(mesh(new THREE.TorusGeometry(0.1, 0.04, 6, 12), tm('se-stripe', 0xff6fa8), 0, -0.9, -2.0));
+    // ana rotor: yuvarlak uçlu kanatlar
+    const bladeM = tm('he-blade', 0x3b2a4a);
+    const mkRotor = (name, ry) => {
+      const r = new THREE.Group();
+      r.name = name;
+      r.position.y = 1.55;
+      r.rotation.y = ry;
+      r.add(mesh(new THREE.BoxGeometry(8, 0.07, 0.42), bladeM));
+      for (const sx of [-1, 1]) r.add(mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 10), tm('he-acc' + owner.team, c.acc), sx * 4, 0, 0));
+      grp.add(r);
+      merge(r, []);
+      return r;
+    };
+    const rotor = mkRotor('rotor', 0);
+    const rotor2 = mkRotor('rotor2', Math.PI / 2);
+    // kuyruk rotoru
+    const tr = new THREE.Group();
+    tr.name = 'tailRotor';
+    tr.position.set(0.18, 0.75, 4.8);
+    tr.add(mesh(new THREE.BoxGeometry(0.05, 1.3, 0.2), bladeM));
+    grp.add(tr);
+    merge(grp, ['rotor', 'rotor2', 'tailRotor']);
+    shadowOn(grp);
     const w = G.world;
     const center = new THREE.Vector3(w.sizeX / 2, 22, w.sizeZ / 2);
     grp.position.set(center.x + 120, 30, center.z);
     w.group.add(grp);
     const ent = {
       isEnt: true, kind: 'heli', name: 'Saldırı Helikopteri', team: owner.team, creditTo: owner, alive: true,
-      pos: grp.position, health: 1300, mesh: grp, rotor, rotor2, until: G.time + 45, center, ang: 0,
+      pos: grp.position, health: 1300, mesh: grp, rotor, rotor2, tailRotor: tr, until: G.time + 45, center, ang: 0,
       radius: Math.min(w.sizeX, w.sizeZ) * 0.3, fireCD: 0, burst: 0, target: null, entering: true, spotted: 0,
       chest(out) { return (out || new THREE.Vector3()).copy(this.pos); },
       hitTest(ox, oy, oz, dx, dy, dz, maxT) {
@@ -311,6 +515,7 @@
   function updateHeli(e, dt) {
     e.rotor.rotation.y += dt * 25;
     e.rotor2.rotation.y += dt * 25;
+    if (e.tailRotor) e.tailRotor.rotation.x += dt * 30;
     G.audio.updateLoop('heli', e.pos);
     if (G.time > e.until) {
       // ayrıl
@@ -376,8 +581,20 @@
     S.updateTargeting();
     for (let i = S.strikes.length - 1; i >= 0; i--) {
       const s = S.strikes[i];
+      // yuvarlak bomba patlamadan ~0.7 sn önce düşmeye başlar (yalnızca görsel)
+      if (!s.bomb && G.time >= s.at - 0.7 && G.world && G.world.group) {
+        s.bomb = buildBomb();
+        G.world.group.add(s.bomb);
+      }
+      if (s.bomb) {
+        const k = U.clamp(1 - (s.at - G.time) / 0.7, 0, 1);
+        s.bomb.position.set(s.pos.x - (s.fx || 0) * (1 - k) * 6, s.pos.y + 0.3 + 28 * (1 - k * k), s.pos.z - (s.fz || 0) * (1 - k) * 6);
+        // top aşağıda, kanatçıklar yukarıda; düşerken hafifçe öne yatar
+        s.bomb.rotation.set(0, Math.atan2(s.fx || 0, s.fz || 1), 0.35 * (1 - k));
+      }
       if (G.time >= s.at) {
         S.strikes.splice(i, 1);
+        if (s.bomb && s.bomb.parent) s.bomb.parent.remove(s.bomb);
         G.combat.explode(s.pos, 6.5, 260, s.credit, { weaponName: 'Hava Saldırısı', streak: true });
       }
     }
@@ -387,11 +604,13 @@
       if (e.isJet) {
         const k = (G.time - e.t0) / e.dur;
         e.jet.position.lerpVectors(e.start, e.end, k);
+        if (e.prop) e.prop.rotation.z += dt * 40;
         if (k >= 1) {
           if (e.jet.parent) e.jet.parent.remove(e.jet);
           keep = false;
         }
-      } else if (!e.alive) keep = false;
+      } else if (e.isDrone) keep = updateDrone(e, dt);
+      else if (!e.alive) keep = false;
       else if (e.kind === 'sentry') keep = updateSentry(e, dt);
       else if (e.kind === 'heli') keep = updateHeli(e, dt);
       if (!keep) S.ents.splice(i, 1);

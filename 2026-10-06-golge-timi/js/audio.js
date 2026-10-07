@@ -1,5 +1,6 @@
 'use strict';
 // Gölge Timi — Web Audio ile tamamen sentezlenen sesler (dosya yok).
+// v3: sevimli/oyuncak tonlar — baloncuk "pop"lar, parlak "ding"ler, neşeli müzik.
 (function () {
   const G = window.G;
   const U = G.util;
@@ -162,8 +163,29 @@
     g.connect(dest);
     osc.start(t);
     osc.stop(t + a + (o.hold || 0) + o.dur + 0.05);
-    track(osc);
+    if (!o.noTrack) track(osc);
     return osc;
+  }
+
+  // ---- Sevimli yapı taşları ----
+  // baloncuk "pop": hızla yükselen sinüs + minik tık
+  function pop(d, t, f, gain, dur) {
+    tone(d, t, { wave: 'sine', f0: f, f1: f * 2.2, dur: dur || 0.06, gain: gain || 0.15, sweep: (dur || 0.06) * 0.7 });
+    noiseHit(d, t, { type: 'bandpass', f0: f * 2.5, dur: 0.012, gain: (gain || 0.15) * 0.5, q: 3 });
+  }
+  // pırıltı kuyruğu: rastgele tiz çan notaları (pentatonik)
+  const SPARK = [1568, 1760, 2093, 2349, 2637, 3136, 3520];
+  function sparkle(d, t, n, gain, spread) {
+    for (let i = 0; i < n; i++) {
+      const f = SPARK[(Math.random() * SPARK.length) | 0];
+      tone(d, t + Math.random() * (spread || 0.4), { wave: 'triangle', f0: f, dur: 0.16, gain: gain || 0.04 });
+    }
+  }
+  // çan: temel + üst harmonik
+  function bell(d, t, f, gain, dur) {
+    tone(d, t, { wave: 'sine', f0: f, dur: dur || 0.4, gain: gain || 0.12 });
+    tone(d, t, { wave: 'sine', f0: f * 2.76, dur: (dur || 0.4) * 0.45, gain: (gain || 0.12) * 0.35 });
+    tone(d, t, { wave: 'triangle', f0: f * 2, dur: (dur || 0.4) * 0.6, gain: (gain || 0.12) * 0.3 });
   }
 
   // ---- Silah sesleri ----
@@ -205,86 +227,102 @@
     if (!isPlayer && A.voices > 60) return;
     const t = A.ctx.currentTime;
     if (kind === 'rocket') {
+      // "fuuump" + yükselen ıslık
       const d = out({ pos: isPlayer ? null : pos, vol: 0.9, ref: 14 });
       if (!d) return;
-      noiseHit(d, t, { type: 'bandpass', f0: 300, f1: 1800, dur: 0.7, gain: 0.8, q: 1.2 });
-      tone(d, t, { f0: 120, f1: 40, dur: 0.3, gain: 0.7 });
+      noiseHit(d, t, { type: 'bandpass', f0: 400, f1: 1600, dur: 0.5, gain: 0.6, q: 1.2 });
+      tone(d, t, { f0: 160, f1: 50, dur: 0.25, gain: 0.7 });
+      tone(d, t + 0.05, { wave: 'sine', f0: 700, f1: 1500, dur: 0.45, gain: 0.08 });
       return;
     }
     if (kind === 'crossbow') {
+      // "tvaang" yay sesi
       const d = out({ pos: isPlayer ? null : pos, vol: 0.7, ref: 6 });
       if (!d) return;
-      tone(d, t, { wave: 'triangle', f0: 180, f1: 90, dur: 0.18, gain: 0.35 });
-      noiseHit(d, t, { type: 'bandpass', f0: 1800, f1: 600, dur: 0.12, gain: 0.3, q: 2 });
+      tone(d, t, { wave: 'triangle', f0: 320, f1: 160, dur: 0.25, gain: 0.3 });
+      tone(d, t, { wave: 'sine', f0: 640, f1: 330, dur: 0.18, gain: 0.12 });
+      noiseHit(d, t, { type: 'bandpass', f0: 2000, f1: 700, dur: 0.08, gain: 0.22, q: 2 });
       return;
     }
     if (kind === 'flare' || kind === 'gl') {
+      // "plonk" tüp atar
       const d = out({ pos: isPlayer ? null : pos, vol: 0.85, ref: 12 });
       if (!d) return;
-      tone(d, t, { f0: kind === 'gl' ? 110 : 220, f1: 50, dur: 0.18, gain: 0.8 });
-      noiseHit(d, t, { type: 'lowpass', f0: kind === 'gl' ? 900 : 2400, f1: 200, dur: 0.25, gain: 0.6 });
-      if (kind === 'flare') noiseHit(d, t + 0.05, { type: 'highpass', f0: 3000, dur: 0.6, gain: 0.15, attack: 0.05 });
+      tone(d, t, { f0: kind === 'gl' ? 180 : 320, f1: 70, dur: 0.16, gain: 0.75 });
+      tone(d, t, { wave: 'sine', f0: kind === 'gl' ? 420 : 620, f1: kind === 'gl' ? 260 : 380, dur: 0.1, gain: 0.2 });
+      noiseHit(d, t, { type: 'lowpass', f0: kind === 'gl' ? 1100 : 2600, f1: 250, dur: 0.18, gain: 0.45 });
+      if (kind === 'flare') noiseHit(d, t + 0.05, { type: 'highpass', f0: 3000, dur: 0.5, gain: 0.1, attack: 0.05 });
       return;
     }
     if (kind === 'frost') {
       const d = out({ pos: isPlayer ? null : pos, vol: 0.7 });
       if (!d) return;
-      tone(d, t, { wave: 'sine', f0: 2600, f1: 700, dur: 0.3, gain: 0.2 });
-      tone(d, t, { wave: 'triangle', f0: 3900, f1: 2200, dur: 0.2, gain: 0.12 });
-      noiseHit(d, t, { type: 'highpass', f0: 5000, dur: 0.25, gain: 0.25 });
+      tone(d, t, { wave: 'sine', f0: 2600, f1: 900, dur: 0.25, gain: 0.16 });
+      sparkle(d, t, 4, 0.05, 0.2);
+      noiseHit(d, t, { type: 'highpass', f0: 5000, dur: 0.18, gain: 0.18 });
       return;
     }
     if (kind === 'plasma') {
+      // "bluup" lazer baloncuğu
       const d = out({ pos: isPlayer ? null : pos, vol: 0.7 });
       if (!d) return;
-      tone(d, t, { wave: 'square', f0: 1400, f1: 180, dur: 0.22, gain: 0.25, filter: 'lowpass', ff: 3000 });
-      tone(d, t, { wave: 'sine', f0: 600, f1: 2400, dur: 0.15, gain: 0.25 });
-      noiseHit(d, t, { type: 'bandpass', f0: 2500, dur: 0.12, gain: 0.25, q: 3 });
+      tone(d, t, { wave: 'square', f0: 1300, f1: 260, dur: 0.18, gain: 0.16, filter: 'lowpass', ff: 2600 });
+      tone(d, t, { wave: 'sine', f0: 500, f1: 1800, dur: 0.12, gain: 0.22 });
+      noiseHit(d, t, { type: 'bandpass', f0: 2500, dur: 0.08, gain: 0.18, q: 3 });
       return;
     }
     const p = GUN[kind] || GUN.ar;
+    // oyuncak "pew" perdesi: silahın gümlemesinden türetilir → her silah sesi ayrı kalır
+    const pew = 520 + p.thump * 3.2;
     if (o.suppressed) {
+      // susturucu: yumuşak "pft" + minik pew
       const d = out({ pos: isPlayer ? null : pos, vol: isPlayer ? 0.7 : 0.45, ref: 4 });
       if (!d) return;
-      noiseHit(d, t, { type: 'highpass', f0: 1400, dur: 0.06, gain: 0.5 });
-      tone(d, t, { f0: p.thump * 1.6, f1: 60, dur: 0.06, gain: 0.35 });
-      noiseHit(d, t + 0.01, { type: 'bandpass', f0: 3500, dur: 0.03, gain: 0.25, q: 4 });
+      noiseHit(d, t, { type: 'bandpass', f0: 1500, dur: 0.05, gain: 0.45, q: 1.2 });
+      tone(d, t, { f0: p.thump * 1.8, f1: 70, dur: 0.05, gain: 0.3 });
+      tone(d, t, { wave: 'sine', f0: pew * 1.3, f1: pew * 0.5, dur: 0.05, gain: 0.08 });
       return;
     }
-    const d = out({ pos: isPlayer ? null : pos, vol: (isPlayer ? 1 : 0.85) * p.gain, ref: 16 });
+    const d = out({ pos: isPlayer ? null : pos, vol: (isPlayer ? 0.95 : 0.8) * p.gain, ref: 16 });
     if (!d) return;
     const pitch = 1 + (Math.random() - 0.5) * 0.08;
-    noiseHit(d, t, { type: 'lowpass', f0: p.lp * pitch, f1: p.lp1, dur: p.dur, gain: 0.9 });
-    tone(d, t, { f0: p.thump * pitch, f1: 38, dur: p.dur * 0.9, gain: 0.8 });
-    if (isPlayer || !pos) noiseHit(d, t, { type: 'highpass', f0: 2600, dur: 0.035, gain: p.crack });
-    noiseHit(d, t + 0.02, { type: 'lowpass', f0: 900, f1: 200, dur: p.tail, gain: 0.22, brown: true, attack: 0.02 });
+    noiseHit(d, t, { type: 'lowpass', f0: p.lp * 1.1 * pitch, f1: p.lp1 * 1.2, dur: p.dur * 0.8, gain: 0.72 });
+    tone(d, t, { f0: p.thump * 1.3 * pitch, f1: 48, dur: p.dur * 0.8, gain: 0.66 });
+    tone(d, t, { wave: 'triangle', f0: pew * pitch, f1: pew * 0.38, dur: 0.05 + p.dur * 0.3, gain: 0.13 + p.crack * 0.12 });
+    if (isPlayer || !pos) noiseHit(d, t, { type: 'highpass', f0: 2800, dur: 0.03, gain: p.crack * 0.8 });
+    noiseHit(d, t + 0.02, { type: 'lowpass', f0: 900, f1: 220, dur: p.tail * 0.7, gain: 0.14, brown: true, attack: 0.02 });
   };
 
   // ---- Genel ses efektleri ----
   const FX = {
     hit(d, t) {
-      tone(d, t, { wave: 'square', f0: 1900, dur: 0.035, gain: 0.12, filter: 'bandpass', ff: 2200, fq: 2 });
-      noiseHit(d, t, { type: 'highpass', f0: 4000, dur: 0.02, gain: 0.15 });
+      // isabet: minik baloncuk "pop"
+      pop(d, t, 900 + Math.random() * 120, 0.16, 0.05);
     },
     headshot(d, t) {
-      tone(d, t, { wave: 'triangle', f0: 3100, dur: 0.28, gain: 0.18 });
-      tone(d, t, { wave: 'sine', f0: 4650, dur: 0.18, gain: 0.08 });
-      noiseHit(d, t, { type: 'highpass', f0: 5000, dur: 0.03, gain: 0.2 });
+      // kafadan: pırıltılı çan
+      bell(d, t, 2093, 0.11, 0.3);
+      bell(d, t + 0.06, 3136, 0.08, 0.35);
+      sparkle(d, t + 0.05, 3, 0.035, 0.2);
     },
     kill(d, t) {
-      tone(d, t, { wave: 'triangle', f0: 880, dur: 0.08, gain: 0.16 });
-      tone(d, t + 0.07, { wave: 'triangle', f0: 1320, dur: 0.14, gain: 0.16 });
+      // öldürme: parlak "ding-ding"
+      bell(d, t, 1318, 0.13, 0.3);
+      bell(d, t + 0.08, 1976, 0.13, 0.45);
+      pop(d, t, 700, 0.08, 0.05);
     },
     armor(d, t) {
-      tone(d, t, { wave: 'square', f0: 700, dur: 0.05, gain: 0.08, filter: 'lowpass', ff: 1500 });
+      tone(d, t, { wave: 'triangle', f0: 1400, f1: 1000, dur: 0.05, gain: 0.08 });
     },
     step(d, t) {
-      noiseHit(d, t, { type: 'lowpass', f0: 350 + Math.random() * 250, dur: 0.07, gain: 0.35, brown: true });
-      noiseHit(d, t + 0.01, { type: 'bandpass', f0: 1800, dur: 0.03, gain: 0.05, q: 2 });
+      // yumuşak "pıt"
+      noiseHit(d, t, { type: 'lowpass', f0: 420 + Math.random() * 250, dur: 0.06, gain: 0.28, brown: true });
+      tone(d, t, { wave: 'sine', f0: 210 + Math.random() * 40, f1: 140, dur: 0.04, gain: 0.05 });
     },
     land(d, t) {
-      noiseHit(d, t, { type: 'lowpass', f0: 300, dur: 0.15, gain: 0.6, brown: true });
-      tone(d, t, { f0: 90, f1: 40, dur: 0.12, gain: 0.35 });
+      noiseHit(d, t, { type: 'lowpass', f0: 360, dur: 0.12, gain: 0.5, brown: true });
+      tone(d, t, { f0: 140, f1: 60, dur: 0.1, gain: 0.3 });
+      tone(d, t + 0.02, { wave: 'sine', f0: 300, f1: 520, dur: 0.06, gain: 0.05 });
     },
     slide(d, t) {
       noiseHit(d, t, { type: 'bandpass', f0: 900, f1: 400, dur: 0.6, gain: 0.3, q: 0.8, attack: 0.04 });
@@ -323,35 +361,51 @@
       tone(d, t, { f0: 140, f1: 60, dur: 0.1, gain: 0.3 });
     },
     pin(d, t) {
-      tone(d, t, { wave: 'triangle', f0: 2600, dur: 0.22, gain: 0.12 });
-      noiseHit(d, t, { type: 'highpass', f0: 4000, dur: 0.03, gain: 0.15 });
+      tone(d, t, { wave: 'triangle', f0: 2600, dur: 0.18, gain: 0.1 });
+      pop(d, t + 0.02, 1200, 0.06, 0.04);
     },
     bounce(d, t) {
-      tone(d, t, { wave: 'triangle', f0: 900 + Math.random() * 300, dur: 0.07, gain: 0.15 });
-      noiseHit(d, t, { type: 'bandpass', f0: 1600, dur: 0.04, gain: 0.2, q: 2 });
+      // "boing"
+      const f = 280 + Math.random() * 80;
+      tone(d, t, { wave: 'sine', f0: f, f1: f * 2.4, dur: 0.12, gain: 0.14, sweep: 0.08 });
+      noiseHit(d, t, { type: 'bandpass', f0: 1600, dur: 0.03, gain: 0.12, q: 2 });
     },
     beep(d, t) {
-      tone(d, t, { wave: 'square', f0: 1250, dur: 0.06, gain: 0.08, filter: 'lowpass', ff: 3000 });
+      tone(d, t, { wave: 'sine', f0: 1480, dur: 0.06, gain: 0.1 });
+      tone(d, t, { wave: 'triangle', f0: 2960, dur: 0.04, gain: 0.03 });
     },
     explosion(d, t) {
-      noiseHit(d, t, { type: 'lowpass', f0: 2200, f1: 90, dur: 1.4, gain: 1.4, sweep: 1.2 });
-      tone(d, t, { f0: 70, f1: 24, dur: 1.0, gain: 1.2 });
-      noiseHit(d, t + 0.05, { type: 'lowpass', f0: 700, f1: 120, dur: 2.2, gain: 0.5, brown: true, attack: 0.05 });
-      noiseHit(d, t, { type: 'highpass', f0: 3000, dur: 0.08, gain: 0.5 });
+      // basslı "bumf" + pırıltı kuyruğu
+      tone(d, t, { wave: 'sine', f0: 110, f1: 32, dur: 0.75, gain: 1.25 });
+      noiseHit(d, t, { type: 'lowpass', f0: 1400, f1: 90, dur: 0.85, gain: 1.05, sweep: 0.7 });
+      noiseHit(d, t + 0.04, { type: 'lowpass', f0: 600, f1: 120, dur: 1.3, gain: 0.32, brown: true, attack: 0.05 });
+      tone(d, t, { wave: 'triangle', f0: 260, f1: 90, dur: 0.18, gain: 0.25 });
+      sparkle(d, t + 0.18, 5, 0.035, 0.5);
     },
     stunBang(d, t) {
-      noiseHit(d, t, { type: 'highpass', f0: 1500, dur: 0.3, gain: 0.9 });
-      tone(d, t, { f0: 110, f1: 40, dur: 0.4, gain: 0.7 });
+      // "BVOİNG" + kuş cıvıltısı pırıltısı
+      noiseHit(d, t, { type: 'highpass', f0: 1800, dur: 0.18, gain: 0.6 });
+      tone(d, t, { wave: 'square', f0: 220, f1: 880, dur: 0.35, gain: 0.12, filter: 'lowpass', ff: 2400, sweep: 0.25 });
+      tone(d, t, { f0: 140, f1: 60, dur: 0.3, gain: 0.5 });
+      sparkle(d, t + 0.15, 6, 0.04, 0.6);
     },
     tinnitus(d, t) {
-      tone(d, t, { wave: 'sine', f0: 3600, dur: 2.6, gain: 0.08, attack: 0.05 });
+      // sersemleme: başta dönen kuşlar gibi cıvıltı + yumuşak ıslık
+      tone(d, t, { wave: 'sine', f0: 3200, dur: 1.8, gain: 0.035, attack: 0.08 });
+      for (let i = 0; i < 4; i++) {
+        tone(d, t + 0.2 + i * 0.45, { wave: 'sine', f0: 2600, f1: 3600, dur: 0.07, gain: 0.05, sweep: 0.05 });
+        tone(d, t + 0.32 + i * 0.45, { wave: 'sine', f0: 2900, f1: 3900, dur: 0.07, gain: 0.05, sweep: 0.05 });
+      }
     },
     smoke(d, t) {
-      noiseHit(d, t, { type: 'highpass', f0: 2500, dur: 2.2, gain: 0.25, attack: 0.1 });
+      // "pfffşş" + baloncuklar
+      noiseHit(d, t, { type: 'bandpass', f0: 2600, f1: 1200, dur: 1.4, gain: 0.2, q: 0.8, attack: 0.08 });
+      for (let i = 0; i < 5; i++) pop(d, t + 0.1 + i * 0.13 + Math.random() * 0.05, 500 + Math.random() * 500, 0.06, 0.05);
     },
     hurt(d, t) {
-      noiseHit(d, t, { type: 'lowpass', f0: 500, dur: 0.12, gain: 0.7, brown: true });
-      tone(d, t, { wave: 'sawtooth', f0: 150, f1: 110, dur: 0.16, gain: 0.12, filter: 'bandpass', ff: 600, fq: 2 });
+      // "ay!" — yumuşak tok
+      noiseHit(d, t, { type: 'lowpass', f0: 520, dur: 0.1, gain: 0.5, brown: true });
+      tone(d, t, { wave: 'triangle', f0: 420, f1: 260, dur: 0.14, gain: 0.12, filter: 'bandpass', ff: 900, fq: 1.5 });
     },
     heartbeat(d, t) {
       tone(d, t, { f0: 60, f1: 40, dur: 0.12, gain: 0.5 });
@@ -362,22 +416,30 @@
       noiseHit(d, t + 0.8, { type: 'lowpass', f0: 1500, f1: 200, dur: 2.0, gain: 0.6, brown: true, attack: 0.2 });
     },
     uav(d, t) {
-      tone(d, t, { wave: 'triangle', f0: 660, dur: 0.1, gain: 0.15 });
-      tone(d, t + 0.12, { wave: 'triangle', f0: 990, dur: 0.18, gain: 0.15 });
+      // robot "bip-bup-biip"
+      tone(d, t, { wave: 'square', f0: 880, dur: 0.07, gain: 0.06, filter: 'lowpass', ff: 2400 });
+      tone(d, t + 0.09, { wave: 'square', f0: 660, dur: 0.07, gain: 0.06, filter: 'lowpass', ff: 2400 });
+      tone(d, t + 0.18, { wave: 'sine', f0: 990, f1: 1480, dur: 0.18, gain: 0.12 });
     },
     warning(d, t) {
+      // tatlı ama dikkat çekici "dü-dıt" (3 kez)
       for (let i = 0; i < 3; i++) {
-        tone(d, t + i * 0.36, { wave: 'square', f0: 720, dur: 0.14, gain: 0.1, filter: 'lowpass', ff: 2000 });
-        tone(d, t + i * 0.36 + 0.18, { wave: 'square', f0: 540, dur: 0.14, gain: 0.1, filter: 'lowpass', ff: 2000 });
+        tone(d, t + i * 0.36, { wave: 'triangle', f0: 880, dur: 0.13, gain: 0.13 });
+        tone(d, t + i * 0.36 + 0.16, { wave: 'triangle', f0: 659, dur: 0.15, gain: 0.13 });
       }
     },
     medal(d, t) {
-      tone(d, t, { wave: 'triangle', f0: 1046, dur: 0.1, gain: 0.12 });
-      tone(d, t + 0.08, { wave: 'triangle', f0: 1568, dur: 0.18, gain: 0.12 });
+      // neşeli üçlü jingle
+      bell(d, t, 1046, 0.09, 0.2);
+      bell(d, t + 0.08, 1318, 0.09, 0.2);
+      bell(d, t + 0.16, 1568, 0.1, 0.35);
     },
     levelUp(d, t) {
-      const notes = [523, 659, 784, 1046, 1318];
-      notes.forEach((f, i) => tone(d, t + i * 0.09, { wave: 'triangle', f0: f, dur: 0.25, gain: 0.14 }));
+      // seviye atlama: yükselen arpej + çan + pırıltı
+      const notes = [523, 659, 784, 1046, 1318, 1568];
+      notes.forEach((f, i) => tone(d, t + i * 0.075, { wave: 'triangle', f0: f, dur: 0.22, gain: 0.12 }));
+      bell(d, t + 0.48, 2093, 0.12, 0.6);
+      sparkle(d, t + 0.5, 6, 0.04, 0.5);
     },
     flag(d, t) {
       [784, 988, 1175].forEach((f, i) => tone(d, t + i * 0.1, { wave: 'square', f0: f, dur: 0.12, gain: 0.06, filter: 'lowpass', ff: 2500 }));
@@ -389,42 +451,39 @@
       tone(d, t, { wave: 'square', f0: 1800, dur: 0.02, gain: 0.05 });
     },
     uiHover(d, t) {
-      tone(d, t, { wave: 'sine', f0: 2200, dur: 0.025, gain: 0.04 });
+      pop(d, t, 1100, 0.035, 0.035);
     },
     uiClick(d, t) {
-      tone(d, t, { wave: 'triangle', f0: 1200, f1: 700, dur: 0.06, gain: 0.1 });
-      noiseHit(d, t, { type: 'highpass', f0: 3000, dur: 0.02, gain: 0.08 });
+      // baloncuk "blop"
+      tone(d, t, { wave: 'sine', f0: 380, f1: 900, dur: 0.07, gain: 0.14, sweep: 0.05 });
+      tone(d, t + 0.02, { wave: 'triangle', f0: 1400, dur: 0.04, gain: 0.04 });
     },
     groan(d, t) {
-      const f = 70 + Math.random() * 60;
+      // aptişko zombi "uuuhh-öhh": kayan perde + yavaş titreşim
       const ctx = A.ctx;
+      const f = 150 + Math.random() * 70;
+      const dur = 0.6 + Math.random() * 0.5;
       const osc = ctx.createOscillator();
-      osc.type = 'sawtooth';
+      osc.type = 'triangle';
       osc.frequency.setValueAtTime(f, t);
-      osc.frequency.linearRampToValueAtTime(f * (0.7 + Math.random() * 0.5), t + 1);
+      osc.frequency.linearRampToValueAtTime(f * 1.25, t + dur * 0.35);
+      osc.frequency.linearRampToValueAtTime(f * 0.7, t + dur);
       const vib = ctx.createOscillator();
-      vib.frequency.value = 5 + Math.random() * 4;
+      vib.frequency.value = 6 + Math.random() * 3;
       const vg = ctx.createGain();
-      vg.gain.value = f * 0.06;
+      vg.gain.value = f * 0.05;
       vib.connect(vg);
       vg.connect(osc.frequency);
       const f1 = ctx.createBiquadFilter();
       f1.type = 'bandpass';
-      f1.frequency.value = 450 + Math.random() * 300;
-      f1.Q.value = 5;
-      const f2 = ctx.createBiquadFilter();
-      f2.type = 'bandpass';
-      f2.frequency.value = 1100 + Math.random() * 400;
-      f2.Q.value = 6;
+      f1.frequency.value = 600 + Math.random() * 250;
+      f1.Q.value = 3;
       const g = ctx.createGain();
-      const dur = 0.7 + Math.random() * 0.8;
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.5, t + 0.12);
+      g.gain.exponentialRampToValueAtTime(0.55, t + 0.08);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       osc.connect(f1);
-      osc.connect(f2);
       f1.connect(g);
-      f2.connect(g);
       g.connect(d);
       osc.start(t);
       vib.start(t);
@@ -433,15 +492,21 @@
       track(osc);
     },
     zattack(d, t) {
-      tone(d, t, { wave: 'sawtooth', f0: 260, f1: 120, dur: 0.35, gain: 0.25, filter: 'bandpass', ff: 900, fq: 3 });
-      noiseHit(d, t, { type: 'bandpass', f0: 1200, dur: 0.25, gain: 0.25, q: 2 });
+      // "hamm!" komik ısırık
+      tone(d, t, { wave: 'square', f0: 300, f1: 520, dur: 0.12, gain: 0.1, filter: 'lowpass', ff: 1400, sweep: 0.08 });
+      noiseHit(d, t + 0.1, { type: 'bandpass', f0: 900, dur: 0.06, gain: 0.25, q: 2 });
+      pop(d, t + 0.12, 420, 0.08, 0.05);
     },
     zdeath(d, t) {
-      tone(d, t, { wave: 'sawtooth', f0: 140, f1: 50, dur: 0.6, gain: 0.25, filter: 'bandpass', ff: 600, fq: 3 });
+      // aşağı kayan ıslık + "puf"
+      tone(d, t, { wave: 'sine', f0: 1100, f1: 220, dur: 0.45, gain: 0.12 });
+      noiseHit(d, t + 0.35, { type: 'bandpass', f0: 1200, f1: 400, dur: 0.18, gain: 0.25, q: 0.8 });
+      pop(d, t + 0.4, 600, 0.08, 0.06);
     },
     bark(d, t) {
-      tone(d, t, { wave: 'sawtooth', f0: 380, f1: 620, dur: 0.12, gain: 0.25, filter: 'bandpass', ff: 1200, fq: 2, sweep: 0.06 });
-      tone(d, t + 0.12, { wave: 'sawtooth', f0: 600, f1: 260, dur: 0.18, gain: 0.2, filter: 'bandpass', ff: 1000, fq: 2 });
+      // zombi yavru "hav!"
+      tone(d, t, { wave: 'triangle', f0: 620, f1: 900, dur: 0.08, gain: 0.2, filter: 'bandpass', ff: 1400, fq: 1.5, sweep: 0.05 });
+      tone(d, t + 0.09, { wave: 'triangle', f0: 880, f1: 520, dur: 0.12, gain: 0.16, filter: 'bandpass', ff: 1300, fq: 1.5 });
     },
     lightning(d, t) {
       noiseHit(d, t, { type: 'highpass', f0: 2000, dur: 0.25, gain: 0.6 });
@@ -474,7 +539,8 @@
       tone(d, t + 1, { wave: 'sine', f0: 200, f1: 120, dur: 0.2, gain: 0.2 });
     },
     powerup(d, t) {
-      [523, 784, 1046, 1568].forEach((f, i) => tone(d, t + i * 0.07, { wave: 'triangle', f0: f, dur: 0.2, gain: 0.13 }));
+      [523, 784, 1046, 1568].forEach((f, i) => tone(d, t + i * 0.06, { wave: 'triangle', f0: f, dur: 0.18, gain: 0.12 }));
+      sparkle(d, t + 0.25, 4, 0.04, 0.3);
     },
     powerupSpawn(d, t) {
       tone(d, t, { wave: 'sine', f0: 900, f1: 1800, dur: 0.5, gain: 0.1 });
@@ -502,29 +568,38 @@
       return ctx;
     },
     roundEnd(d, t) {
-      [330, 311, 247, 220].forEach((f, i) => tone(d, t + i * 0.45, { wave: 'triangle', f0: f, dur: 0.6, gain: 0.12, attack: 0.05 }));
+      [784, 659, 523, 659].forEach((f, i) => tone(d, t + i * 0.3, { wave: 'triangle', f0: f, dur: 0.4, gain: 0.11, attack: 0.02 }));
     },
     gameOver(d, t) {
-      [196, 185, 165, 147, 110].forEach((f, i) => tone(d, t + i * 0.5, { wave: 'sawtooth', f0: f, dur: 0.9, gain: 0.08, filter: 'lowpass', ff: 700 }));
+      [392, 370, 349, 330, 262].forEach((f, i) => tone(d, t + i * 0.45, { wave: 'triangle', f0: f, f1: f * 0.97, dur: 0.6, gain: 0.1 }));
     },
     victory(d, t) {
-      [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => tone(d, t + i * 0.15, { wave: 'triangle', f0: f, dur: 0.3, gain: 0.14 }));
+      [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => tone(d, t + i * 0.14, { wave: 'triangle', f0: f, dur: 0.28, gain: 0.13 }));
+      bell(d, t + 1.0, 2093, 0.12, 0.8);
+      sparkle(d, t + 1.0, 8, 0.04, 0.8);
     },
     defeat(d, t) {
-      [440, 415, 392, 330].forEach((f, i) => tone(d, t + i * 0.3, { wave: 'triangle', f0: f, dur: 0.5, gain: 0.12 }));
+      // üzgün ama sevimli "vah vah"
+      [523, 494, 466, 440].forEach((f, i) => tone(d, t + i * 0.28, { wave: 'triangle', f0: f, f1: f * 0.97, dur: 0.4, gain: 0.11 }));
     },
     target(d, t) {
-      tone(d, t, { wave: 'triangle', f0: 1700, dur: 0.12, gain: 0.12 });
-      noiseHit(d, t, { type: 'bandpass', f0: 3000, dur: 0.05, gain: 0.2, q: 3 });
+      bell(d, t, 1760, 0.1, 0.18);
+      pop(d, t, 800, 0.06, 0.04);
+    },
+    reloadEnd(d, t) {
+      noiseHit(d, t, { type: 'bandpass', f0: 1800, dur: 0.03, gain: 0.25, q: 3 });
+      tone(d, t + 0.03, { wave: 'triangle', f0: 1568, dur: 0.08, gain: 0.05 });
     },
     whoosh(d, t) {
       noiseHit(d, t, { type: 'bandpass', f0: 2000, f1: 500, dur: 0.18, gain: 0.25, q: 1.5 });
     },
     ricochet(d, t) {
-      tone(d, t, { wave: 'sine', f0: 3500 + Math.random() * 1500, f1: 1200, dur: 0.18, gain: 0.05 });
+      // çizgi film "piyuuv"
+      tone(d, t, { wave: 'sine', f0: 3200 + Math.random() * 900, f1: 1300, dur: 0.2, gain: 0.05 });
     },
     impact(d, t) {
-      noiseHit(d, t, { type: 'bandpass', f0: 1200 + Math.random() * 900, dur: 0.04, gain: 0.25, q: 1.5 });
+      noiseHit(d, t, { type: 'bandpass', f0: 1100 + Math.random() * 700, dur: 0.035, gain: 0.2, q: 1.5 });
+      tone(d, t, { wave: 'sine', f0: 500 + Math.random() * 200, f1: 300, dur: 0.04, gain: 0.05 });
     },
   };
 
@@ -605,81 +680,98 @@
   };
 
   // ---- Müzik ----
+  // Adım sıralayıcı (sekizlik notalar). menu: neşeli Do majör; zm: tatlı-ürkünç La minör "oom-pah".
+  function mtof(m) {
+    return 440 * Math.pow(2, (m - 69) / 12);
+  }
+  const SONGS = {
+    menu: {
+      bpm: 112,
+      roots: [48, 45, 41, 43],
+      chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]],
+      mel: [72, -1, 76, 79, -1, 76, 74, 72, 69, -1, 72, 76, -1, 74, 72, -1, 77, -1, 76, 72, -1, 69, 72, 74, 79, -1, 77, 74, 76, -1, 74, -1],
+      lead: 'triangle',
+      bass: 'triangle',
+    },
+    zm: {
+      bpm: 100,
+      roots: [45, 41, 43, 40],
+      chords: [[57, 60, 64], [53, 57, 60], [55, 59, 62], [52, 56, 59]],
+      mel: [69, -1, 72, -1, 71, -1, 69, -1, 65, -1, 69, -1, 72, 71, 69, -1, 67, -1, 71, -1, 74, -1, 72, 71, 68, -1, 71, -1, 76, -1, -1, -1],
+      lead: 'sine',
+      bass: 'square',
+      spooky: true,
+    },
+  };
+  function musicStep(song, step, t, bus, spb) {
+    const bar = Math.floor(step / 8) % 4, s8 = step % 8;
+    const root = song.roots[bar], ch = song.chords[bar];
+    // bas: zıplayan kök + beşli
+    if (s8 % 2 === 0) {
+      const m = s8 === 0 || s8 === 4 ? root : root + 7;
+      tone(bus, t, { wave: song.bass, f0: mtof(m - (song.spooky ? 12 : 0)), dur: spb * 0.9, gain: song.spooky ? 0.06 : 0.1, filter: song.spooky ? 'lowpass' : null, ff: 600, noTrack: true });
+    }
+    // eşlik: arka vuruşlarda yumuşak akor
+    if (s8 === 2 || s8 === 6) {
+      for (const n of ch) tone(bus, t, { wave: 'triangle', f0: mtof(n), dur: spb * 0.7, gain: 0.022, noTrack: true });
+    }
+    // melodi: marimba benzeri tını
+    const m = song.mel[step % song.mel.length];
+    if (m > 0) {
+      const f = mtof(m);
+      if (song.spooky) {
+        // hayalet "uuu": titreşimli sinüs
+        const o = tone(bus, t, { wave: 'sine', f0: f, dur: spb * 1.6, gain: 0.05, attack: 0.04, noTrack: true });
+        if (o) {
+          o.detune.setValueAtTime(0, t);
+          o.detune.linearRampToValueAtTime(-30, t + spb * 1.6);
+        }
+      } else {
+        tone(bus, t, { wave: song.lead, f0: f, dur: spb * 1.1, gain: 0.06, noTrack: true });
+        tone(bus, t, { wave: 'sine', f0: f * 4, dur: spb * 0.25, gain: 0.012, noTrack: true });
+      }
+    }
+    // shaker
+    if (step % 2 === 1 && !song.spooky) noiseHit(bus, t, { type: 'highpass', f0: 7000, dur: 0.03, gain: 0.03 });
+    if (song.spooky && s8 === 7 && bar === 3) tone(bus, t, { wave: 'sine', f0: 1400, f1: 600, dur: 0.35, gain: 0.025, noTrack: true });
+  }
   A.music = function (mode) {
     if (!A.ctx) return;
     if (A.musicState === mode) return;
     A.musicState = mode;
     if (A.musicNodes) {
-      const now = A.ctx.currentTime;
-      for (const n of A.musicNodes.gains) n.gain.setTargetAtTime(0, now, 0.6);
       const old = A.musicNodes;
+      clearInterval(old.timer);
+      old.gain.gain.setTargetAtTime(0, A.ctx.currentTime, 0.4);
       setTimeout(() => {
-        for (const o of old.oscs) try { o.stop(); } catch (e) { /* yoksay */ }
-        clearInterval(old.timer);
+        try {
+          old.gain.disconnect();
+        } catch (e) { /* yoksay */ }
       }, 3000);
       A.musicNodes = null;
     }
     if (mode === 'none') return;
     const ctx = A.ctx;
-    const oscs = [], gains = [];
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = mode === 'zm' ? 380 : 700;
-    filter.Q.value = 3;
-    filter.connect(A.musicBus);
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.07;
-    const lg = ctx.createGain();
-    lg.gain.value = mode === 'zm' ? 120 : 300;
-    lfo.connect(lg);
-    lg.connect(filter.frequency);
-    lfo.start();
-    oscs.push(lfo);
-    const chords = mode === 'zm'
-      ? [[55, 65.4, 82.4], [51.9, 61.7, 77.8], [49, 58.3, 73.4], [51.9, 65.4, 77.8]]
-      : [[73.4, 110, 146.8, 174.6], [65.4, 98, 130.8, 164.8], [58.3, 87.3, 116.5, 146.8], [69.3, 103.8, 138.6, 164.8]];
-    const voices = chords[0].length;
-    for (let i = 0; i < voices; i++) {
-      for (const det of [-7, 7]) {
-        const o = ctx.createOscillator();
-        o.type = 'sawtooth';
-        o.detune.value = det;
-        o.frequency.value = chords[0][i];
-        const g = ctx.createGain();
-        g.gain.value = 0;
-        g.gain.setTargetAtTime(0.05, ctx.currentTime, 1.5);
-        o.connect(g);
-        g.connect(filter);
-        o.start();
-        oscs.push(o);
-        gains.push(g);
-        o._voice = i;
-      }
-    }
-    // nabız
-    const pulse = ctx.createOscillator();
-    pulse.type = 'triangle';
-    pulse.frequency.value = mode === 'zm' ? 41 : 55;
-    const pg = ctx.createGain();
-    pg.gain.value = 0;
-    pulse.connect(pg);
-    pg.connect(A.musicBus);
-    pulse.start();
-    oscs.push(pulse);
-    gains.push(pg);
-    let ci = 0;
+    const song = SONGS[mode === 'zm' ? 'zm' : 'menu'];
+    const bus = ctx.createGain();
+    bus.gain.value = 0.0001;
+    bus.gain.setTargetAtTime(1, ctx.currentTime, 0.8);
+    bus.connect(A.musicBus);
+    const spb = 60 / song.bpm / 2;
+    let step = 0;
+    let next = ctx.currentTime + 0.1;
     const timer = setInterval(() => {
       if (!A.ctx) return;
-      ci = (ci + 1) % chords.length;
       const now = A.ctx.currentTime;
-      for (const o of oscs) if (o._voice != null) o.frequency.setTargetAtTime(chords[ci][o._voice], now, 0.4);
-      for (let k = 0; k < 4; k++) {
-        pg.gain.setValueAtTime(0.0001, now + k * 1.0);
-        pg.gain.exponentialRampToValueAtTime(mode === 'zm' ? 0.12 : 0.08, now + k * 1.0 + 0.02);
-        pg.gain.exponentialRampToValueAtTime(0.0001, now + k * 1.0 + 0.5);
+      // sekme arka plandaysa geride kalan notaları atla
+      if (next < now - 0.05) next = now + 0.05;
+      while (next < now + 0.3) {
+        musicStep(song, step, next, bus, spb);
+        step++;
+        next += spb;
       }
-    }, 4000);
-    A.musicNodes = { oscs, gains, timer };
+    }, 80);
+    A.musicNodes = { timer, gain: bus, oscs: [], gains: [bus] };
   };
 
   // ---- Anons (konuşma sentezi, varsa) ----

@@ -1199,8 +1199,8 @@
       G.hud && G.hud.bigMessage('GÜÇ AÇILDI', 'Yetenek makineleri ve Dönüştürücü çalışıyor');
       if (this.powerSwitch) this.powerSwitch.lever.rotation.x = -0.6;
       for (const pk of this.perks) if (pk.perk !== 'demlicay') pk.glow.material.color.setHex(pk.color);
-      for (const l of this.world.lampLights) l.intensity *= 1.8;
-      if (this.world.hemi) this.world.hemi.intensity *= 1.35;
+      for (const l of this.world.lampLights) l.intensity *= 1.4;
+      if (this.world.hemi) this.world.hemi.intensity *= 1.15;
     }
 
     rollBox() {
