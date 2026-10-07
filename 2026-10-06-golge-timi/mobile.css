@@ -1,0 +1,276 @@
+/* Gölge Timi — telefon ve dokunmatik düzen (style.css'ten sonra yüklenir).
+   Dokunmatik kontroller, HUD yerleşimi ve küçük ekran kuralları burada.
+   Birim: --u = temel tuş boyutu (ekran yüksekliğine göre, ayardaki "Tuş boyutu" ile çarpılır).
+   Tuş konumları sağ-alt köşeden --x / --y (merkez, u cinsinden), boyut --s (u). */
+
+/* ---------------- Genel: yakınlaştırma, uzun basma, yenileme ---------------- */
+html, body { overscroll-behavior: none; }
+body.touch { -webkit-touch-callout: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body.touch img { -webkit-user-drag: none; -webkit-touch-callout: none; }
+/* menülerde kaydırmaya izin ver ama iki parmak yakınlaştırmasını kapat (özgüllük 0: diğer kurallar kazanır) */
+:where(body.touch #ui), :where(body.touch #ui) :where(*) { touch-action: pan-x pan-y; }
+:where(body.touch) :where(input[type=range]) { touch-action: none; }
+
+/* ---------------- Dokunmatik katman ---------------- */
+/* üst sınır: alçak ekranlarda büyük tuşlar üstteki HUD sütununa taşmasın */
+body.touch { --tu: min(calc(clamp(40px, min(12.5vh, 7vw), 64px) * var(--ts, 1)), calc((100vh - 100px) / 5.4)); }
+#touch {
+  --to: 0.9;
+  --u: var(--tu, 48px);
+  --sr: env(safe-area-inset-right, 0px);
+  --sl: env(safe-area-inset-left, 0px);
+  --st: env(safe-area-inset-top, 0px);
+  --sb: env(safe-area-inset-bottom, 0px);
+  --si: var(--sr);
+  --ink: 59, 42, 74;
+  position: fixed; inset: 0; z-index: 8; pointer-events: none;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
+}
+body.touch-left #touch { --si: var(--sl); }
+#touch * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+
+/* bakış ve çubuk bölgeleri */
+#touch .t-look { position: absolute; top: 0; bottom: 0; right: 0; width: 55%; pointer-events: auto; touch-action: none; }
+#touch .t-zone { position: absolute; left: 0; bottom: 0; top: calc(var(--st) + 0.4 * var(--u)); width: 45%; pointer-events: auto; touch-action: none; }
+body.touch-left #touch .t-look { right: auto; left: 0; }
+body.touch-left #touch .t-zone { left: auto; right: 0; }
+
+/* yüzen analog çubuk */
+#touch .t-stick {
+  position: absolute; width: calc(2.5 * var(--u)); height: calc(2.5 * var(--u));
+  left: calc(var(--sl) + 1.75 * var(--u)); top: calc(100% - var(--sb) - 1.75 * var(--u));
+  bottom: auto; right: auto; border: 0; margin: 0;
+  transform: translate(-50%, -50%); pointer-events: none; opacity: calc(var(--to) * 0.7);
+  transition: opacity 0.15s;
+}
+body.touch-left #touch .t-stick { left: calc(100% - var(--sr) - 1.75 * var(--u)); }
+#touch .t-stick.active { opacity: var(--to); transition: none; }
+#touch .t-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 250, 243, 0.22) 0 50%, rgba(154, 215, 255, 0.4) 51% 100%);
+  border: calc(0.07 * var(--u)) solid rgba(255, 250, 243, 0.95);
+  box-shadow: 0 calc(0.06 * var(--u)) 0 rgba(var(--ink), 0.35), inset 0 0 0 calc(0.05 * var(--u)) rgba(var(--ink), 0.12);
+}
+#touch .t-stick.sprint .t-ring { border-color: #ffd23f; background: radial-gradient(circle, rgba(255, 210, 63, 0.12) 0 60%, rgba(255, 210, 63, 0.35) 61%); }
+#touch .t-knob {
+  position: absolute; left: 50%; top: 50%; width: calc(1.05 * var(--u)); height: calc(1.05 * var(--u));
+  margin: calc(-0.525 * var(--u)); border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff 0 12%, #9ad7ff 30%, #4cc3ff 70%, #2f9fe0);
+  border: calc(0.06 * var(--u)) solid #fffaf3;
+  box-shadow: 0 calc(0.07 * var(--u)) 0 rgba(var(--ink), 0.45);
+  display: grid; place-items: center;
+}
+#touch .t-stick.sprint .t-knob { background: radial-gradient(circle at 35% 30%, #fff 0 12%, #ffe58a 30%, #ffd23f 70%, #f0a92a); }
+#touch .t-run { display: none; width: 66%; height: 66%; }
+#touch .t-stick.sprint .t-run { display: block; }
+#touch .t-arrow {
+  position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0;
+  border-left: calc(0.16 * var(--u)) solid transparent; border-right: calc(0.16 * var(--u)) solid transparent;
+  border-bottom: calc(0.2 * var(--u)) solid #fffaf3;
+  transform: translate(-50%, -50%) rotate(var(--ang, 0rad)) translateY(calc(-1.38 * var(--u)));
+  filter: drop-shadow(0 1px 0 rgba(var(--ink), 0.6));
+}
+#touch .t-stick.moving .t-arrow { opacity: 1; }
+#touch .t-stick.sprint .t-arrow { border-bottom-color: #ffd23f; }
+
+/* ---------------- Baloncuk tuşlar ---------------- */
+#touch .t-pad { position: absolute; inset: 0; pointer-events: none; }
+#touch .t-btn {
+  --c: 76, 195, 255; --s: 1; --x: 0; --y: 0;
+  --px: calc(var(--si) + 6px + (var(--x) - var(--s) / 2) * var(--u));
+  --py: calc(var(--sb) + 4px + (var(--y) - var(--s) / 2) * var(--u));
+  position: absolute; right: var(--px); bottom: var(--py);
+  width: calc(var(--s) * var(--u)); height: calc(var(--s) * var(--u));
+  border-radius: 50%;
+  /* şeker baloncuk: dolu renk, üstte yumuşak parlaklık, altta koyu "3D" kenar */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 55%), rgb(var(--c));
+  border: calc(0.06 * var(--u)) solid #fffaf3;
+  box-shadow: 0 calc(0.075 * var(--u)) 0 rgba(var(--ink), 0.45), inset 0 calc(-0.08 * var(--u)) 0 rgba(var(--ink), 0.2);
+  display: grid; place-items: center; color: #fff;
+  opacity: var(--to); pointer-events: auto; touch-action: none;
+  transition: transform 0.08s ease-out, box-shadow 0.08s, opacity 0.2s, filter 0.2s;
+}
+body.touch-left #touch .t-pad .t-btn { right: auto; left: var(--px); }
+/* parlak "şeker" yansıması (sol üst hilal) */
+#touch .t-btn::before {
+  content: ''; position: absolute; left: 17%; top: 9%; width: 38%; height: 20%; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55); transform: rotate(-24deg); pointer-events: none;
+}
+#touch .t-btn.pill::before { left: 12%; width: 30%; height: 24%; transform: rotate(-8deg); }
+/* parıltı halkası: kutu gölgesi yerine opaklık canlandırılır (telefonda her karede yeniden boyama yok) */
+#touch .t-btn::after {
+  content: ''; position: absolute; inset: calc(-0.16 * var(--u)); border-radius: inherit; pointer-events: none; opacity: 0;
+  box-shadow: 0 0 0 calc(0.09 * var(--u)) rgba(var(--glow, 255, 210, 63), 0.8);
+}
+#touch .t-btn.down {
+  transform: translateY(calc(0.06 * var(--u))) scale(0.93);
+  box-shadow: 0 calc(0.02 * var(--u)) 0 rgba(var(--ink), 0.42), inset 0 calc(-0.04 * var(--u)) 0 rgba(var(--ink), 0.16);
+  filter: brightness(1.12) saturate(1.1);
+  transition: none;
+}
+#touch .t-btn.on { box-shadow: 0 0 0 calc(0.07 * var(--u)) rgba(255, 210, 63, 0.95), 0 calc(0.075 * var(--u)) 0 rgba(var(--ink), 0.42); }
+#touch .t-btn.empty { filter: grayscale(0.75); opacity: calc(var(--to) * 0.5); }
+#touch .t-ico { display: block; width: 58%; height: 58%; font-style: normal; filter: drop-shadow(0 calc(0.03 * var(--u)) 0 rgba(var(--ink), 0.7)); }
+#touch .t-ico svg { display: block; width: 100%; height: 100%; overflow: visible; }
+#touch svg { fill: none; stroke: #fff; stroke-width: 4.2; stroke-linecap: round; stroke-linejoin: round; }
+#touch svg .f { fill: #fff; }
+#touch svg .w { fill: rgba(var(--c), 1); stroke: rgba(var(--c), 1); }
+#touch svg .st { opacity: 0.85; }
+#touch .t-lbl {
+  position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%);
+  font-size: clamp(8px, calc(0.17 * var(--u)), 12px); font-weight: 800; letter-spacing: 0.02em; line-height: 1;
+  color: #fff; white-space: nowrap; pointer-events: none;
+  text-shadow: 0 1px 0 rgba(var(--ink), 0.9), 1px 0 0 rgba(var(--ink), 0.6), -1px 0 0 rgba(var(--ink), 0.6);
+}
+#touch .t-btn:not(.mini):not(.small) .t-ico { width: 52%; height: 52%; margin-bottom: 18%; }
+#touch .t-btn.mini .t-lbl, #touch .t-btn.small .t-lbl { display: none; }
+#touch .t-badge {
+  position: absolute; top: -6%; right: -6%; min-width: calc(0.4 * var(--u)); height: calc(0.4 * var(--u));
+  padding: 0 calc(0.08 * var(--u)); border-radius: 999px; display: grid; place-items: center;
+  background: #ffd23f; color: rgb(var(--ink)); border: 2px solid #fffaf3;
+  font: 800 clamp(9px, calc(0.24 * var(--u)), 15px) / 1 'Baloo 2', 'Nunito', sans-serif;
+  box-shadow: 0 2px 0 rgba(var(--ink), 0.35);
+}
+#touch .t-badge.none { display: none; }
+
+/* renkler + konumlar (sağ-alt köşeden) */
+#touch .t-fire { --c: 255, 111, 168; --s: 1.75; --x: 2.6; --y: 2.45; }
+#touch .t-fire .t-ico { width: 54%; height: 54%; }
+#touch .t-fire { --glow: 255, 111, 168; }
+#touch .t-fire.auto::after { animation: tPulse 0.5s ease-in-out infinite alternate; }
+#touch.targeting .t-fire { --c: 255, 179, 71; }
+#touch .t-jump { --c: 61, 220, 151; --s: 1.15; --x: 0.85; --y: 1.4; }
+#touch .t-crouch { --c: 155, 93, 229; --s: 1; --x: 2.6; --y: 0.68; }
+#touch .t-prone { --c: 155, 93, 229; --s: 0.95; --x: 3.85; --y: 0.64; }
+#touch .t-reload { --c: 255, 196, 0; --s: 1; --x: 0.85; --y: 2.8; }
+#touch .t-reload.alert { animation: tWiggle 0.9s ease-in-out infinite; }
+#touch .t-reload.on .t-ico { animation: tSpin 0.8s linear infinite; }
+#touch .t-melee { --c: 255, 139, 148; --s: 0.85; --x: 0.85; --y: 4.05; }
+#touch .t-ads { --c: 76, 195, 255; --s: 1.15; --x: 4; --y: 3.3; }
+#touch .t-swap { --c: 78, 205, 196; --s: 0.8; --x: 2.3; --y: 4.25; width: calc(1.6 * var(--u)); border-radius: 999px; --px: calc(var(--si) + 6px + (var(--x) - 0.8) * var(--u)); }
+#touch .t-swap.none { display: none; }
+#touch .t-swap .t-lbl { display: none; }
+#touch .t-swap .t-ico { width: 34%; height: 70%; margin: 0; }
+#touch .t-swap .t-wimg { display: none; position: absolute; left: 12%; right: 12%; top: 16%; bottom: 16%; width: 76%; height: 68%; object-fit: contain; filter: brightness(0) invert(1) drop-shadow(0 2px 0 rgba(59, 42, 74, 0.7)); pointer-events: none; }
+#touch .t-swap.has-img .t-wimg { display: block; }
+#touch .t-swap.has-img .t-ico { display: none; }
+#touch .t-lethal { --c: 255, 160, 60; --s: 0.95; --x: 5.2; --y: 1.85; }
+#touch .t-tactical { --c: 78, 205, 196; --s: 0.9; --x: 5.35; --y: 3.1; }
+#touch .t-cay { --c: 224, 112, 70; --s: 0.8; --x: 5.05; --y: 0.6; }
+#touch .t-simit { --c: 242, 170, 80; --s: 0.8; --x: 6.05; --y: 0.6; }
+#touch .t-use { --c: 255, 196, 0; --s: 1.15; --x: 6.55; --y: 2.5; transform: scale(0); opacity: 0; pointer-events: none; }
+#touch .t-use.show { transform: none; opacity: var(--to); pointer-events: auto; animation: tPop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1); }
+#touch .t-use.show::after { animation: tPulse 0.6s 0.35s ease-in-out infinite alternate; }
+#touch .t-use.show.down { transform: translateY(calc(0.06 * var(--u))) scale(0.93); }
+#touch .t-use .t-lbl { display: none; }
+#touch .t-use .t-ico { margin-bottom: 0 !important; }
+#touch .t-use .t-badge { top: auto; bottom: -14%; right: 50%; transform: translateX(50%); background: #fffaf3; }
+
+/* bomba pişirme halkası */
+#touch .t-cook { position: absolute; inset: calc(-0.1 * var(--u)); border-radius: 50%; pointer-events: none; opacity: 0;
+  background: conic-gradient(#ff5b6e calc(var(--cook, 0) * 360deg), rgba(255, 255, 255, 0.25) 0);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%); mask: radial-gradient(circle, transparent 62%, #000 63%); }
+#touch .t-lethal.cooking .t-cook { opacity: 1; }
+#touch .t-lethal.cooking { animation: tWiggle 0.35s ease-in-out infinite; }
+
+/* üst sağ: skor + menü */
+#touch .t-top { position: absolute; top: calc(var(--st) + 6px); right: calc(var(--sr) + 8px); left: auto; transform: none; display: flex; gap: 8px; pointer-events: none; }
+#touch .t-top .t-btn { position: relative; right: auto; bottom: auto; --s: 0.78; border-radius: 30%; --c: 155, 93, 229; }
+#touch .t-top .t-pause { --c: 255, 111, 168; }
+#touch .t-top .t-ico { width: 54%; height: 54%; }
+
+/* seriler: yalnızca hazır olanlar (sol orta) */
+#touch .t-streaks { position: absolute; left: calc(var(--sl) + 8px); top: calc(var(--st) + clamp(64px, 20vh, 120px) + 52px); display: grid; gap: 8px; pointer-events: none; }
+body.touch-left #touch .t-streaks { left: auto; right: calc(var(--sr) + 8px); }
+#touch .t-streak { position: relative; right: auto; bottom: auto; --s: 0.95; --c: 255, 196, 0; border-radius: 30%; animation: tPop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
+#touch .t-streak::after { animation: tPulse 0.5s 0.4s ease-in-out infinite alternate; }
+#touch .t-streak img { width: 56%; height: 56%; object-fit: contain; image-rendering: auto; margin-bottom: 16%; filter: drop-shadow(0 2px 0 rgba(var(--ink), 0.6)); pointer-events: none; }
+#touch .t-streak .t-lbl { font-size: clamp(7px, calc(0.14 * var(--u)), 10px); line-height: 1.25; }
+
+/* hava saldırısı ipucu */
+#touch .t-hint { position: absolute; left: 50%; top: calc(50% + 40px); transform: translateX(-50%); padding: 6px 14px; border-radius: 999px;
+  background: rgba(255, 250, 243, 0.92); color: rgb(var(--ink)); font: 700 13px/1.2 'Nunito', sans-serif; white-space: nowrap; box-shadow: 0 3px 0 rgba(var(--ink), 0.3); }
+#touch .t-hint b { color: #ff6fa8; }
+
+/* ölüyken: yalnızca üst tuşlar (doğma ekranındaki seçimler dokunulabilir kalsın) */
+#touch.dead .t-pad, #touch.dead .t-zone, #touch.dead .t-look, #touch.dead .t-streaks, #touch.dead .t-hint { display: none; }
+
+@keyframes tPop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+@keyframes tPulse { from { opacity: 0.15; } to { opacity: 1; } }
+@keyframes tWiggle { 0%, 100% { rotate: 0deg; } 25% { rotate: -8deg; } 75% { rotate: 8deg; } }
+@keyframes tSpin { to { transform: rotate(360deg); } }
+
+/* alçak ekranlar: etiketleri gizle, simgeleri ortala */
+@media (max-height: 400px) {
+  #touch .t-lbl { display: none; }
+  #touch .t-btn:not(.mini):not(.small) .t-ico { width: 58%; height: 58%; margin-bottom: 0; }
+  #touch .t-streak img { margin-bottom: 0; }
+}
+
+/* ---------------- Dokunmatikte HUD yerleşimi ---------------- */
+/* sol üst: mini harita, altında görev / zombi raundu / telsiz */
+body.touch #hud #h-mini { top: calc(env(safe-area-inset-top, 0px) + 6px); left: calc(env(safe-area-inset-left, 0px) + 8px); width: clamp(64px, 20vh, 120px); height: clamp(64px, 20vh, 120px); }
+body.touch #hud #h-objective { top: calc(env(safe-area-inset-top, 0px) + clamp(64px, 20vh, 120px) + 12px); left: calc(env(safe-area-inset-left, 0px) + 8px); max-width: min(34vw, 260px); font-size: 12px; padding: 4px 8px; }
+body.touch #hud #h-zm { top: calc(env(safe-area-inset-top, 0px) + clamp(64px, 20vh, 120px) + 10px); bottom: auto; left: calc(env(safe-area-inset-left, 0px) + 10px); }
+body.touch #hud #h-round { font-size: clamp(30px, 10vh, 56px); }
+body.touch #hud #h-points { font-size: clamp(20px, 6.5vh, 32px); }
+body.touch #hud #h-radio { top: calc(env(safe-area-inset-top, 0px) + clamp(64px, 20vh, 120px) + 64px); bottom: auto; left: calc(env(safe-area-inset-left, 0px) + 8px); transform: none; width: min(40vw, 380px); font-size: 12px; padding: 5px 9px; }
+/* üst orta: pusula + skor (küçültülmüş) */
+body.touch #hud #h-compass { width: min(36vw, 320px); }
+body.touch #hud #h-top { transform: translateX(-50%) scale(0.78); transform-origin: 50% 0; }
+/* üst sağ: (skor/menü tuşları) → silah/cephane → öldürme akışı */
+body.touch #hud #h-right { top: calc(env(safe-area-inset-top, 0px) + var(--tu, 48px) * 0.78 + 12px); bottom: auto; right: calc(env(safe-area-inset-right, 0px) + 10px); gap: 2px; }
+body.touch #hud #h-streaks, body.touch #hud #h-equip, body.touch #hud #h-wicon, body.touch #hud #h-pips { display: none; }
+body.touch #hud #h-wname { font-size: 11px; line-height: 1.1; }
+body.touch #hud #h-mag { font-size: clamp(24px, 8vh, 40px); }
+body.touch #hud #h-res { font-size: clamp(13px, 4vh, 20px); }
+body.touch #hud #h-feed { top: calc(env(safe-area-inset-top, 0px) + var(--tu, 48px) * 0.78 + clamp(58px, 17vh, 84px)); right: calc(env(safe-area-inset-right, 0px) + 10px); max-width: 38vw; gap: 3px; }
+body.touch #hud #h-feed .kf { font-size: 11px; padding: 2px 7px; }
+body.touch #hud #h-feed .kf img { height: 11px; }
+body.touch #hud #h-feed .kf:nth-child(n + 4) { display: none; }
+@media (max-height: 420px) { body.touch #hud #h-feed .kf:nth-child(n + 3) { display: none; } }
+@media (max-height: 370px) { body.touch #hud #h-feed .kf:nth-child(n + 2) { display: none; } }
+/* alt: sağlık çubuğu çubuğun sağında */
+body.touch #hud #h-left { left: calc(env(safe-area-inset-left, 0px) + var(--tu, 48px) * 3.3); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); right: auto; transform: none; justify-items: start; gap: 4px; }
+body.touch.touch-left #hud #h-left { left: auto; right: calc(env(safe-area-inset-right, 0px) + var(--tu, 48px) * 3.3); justify-items: end; }
+body.touch #hud #h-health { width: clamp(96px, 20vw, 190px); }
+body.touch #hud #h-photo img { width: 30px; height: 36px; }
+body.touch #hud #h-photo span { display: none; }
+/* etkileşim yazısı ve sayaçlar üst ortada, tuşların üstüne binmesin */
+body.touch #hud #h-prompt { top: calc(env(safe-area-inset-top, 0px) + clamp(88px, 27vh, 220px)); bottom: auto; max-width: min(56vw, 520px); font-size: 13px; padding: 5px 12px; }
+body.touch #hud #h-prompt small { font-size: 11px; }
+body.touch #hud #h-center { top: 30%; }
+body.touch #hud #h-medals { top: calc(50% + 44px); }
+body.touch #hud #h-pops { top: calc(50% + 26px); }
+body.touch #hud #h-fps { top: calc(env(safe-area-inset-top, 0px) + 6px); right: auto; left: calc(env(safe-area-inset-left, 0px) + clamp(64px, 20vh, 120px) + 16px); font-size: 14px; }
+body.touch #hud #h-board { max-height: 76vh; font-size: 13px; }
+
+/* ---------------- Döndürme ipucu (dikey ekranda maç) ---------------- */
+body.touch #rotate-hint {
+  top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 40;
+  width: min(80vw, 320px); padding: 92px 18px 18px; border-radius: 24px; text-align: center;
+  background: rgba(255, 250, 243, 0.95); color: #3b2a4a; border: 4px solid #4cc3ff;
+  font: 800 17px/1.3 'Baloo 2', 'Nunito', sans-serif; box-shadow: 0 6px 0 rgba(59, 42, 74, 0.3), 0 0 0 100vmax rgba(59, 42, 74, 0.5);
+}
+body.touch #rotate-hint::before {
+  content: ''; position: absolute; left: 50%; top: 18px; width: 34px; height: 58px; margin-left: -17px;
+  border: 5px solid #3b2a4a; border-radius: 9px; background: #9ad7ff;
+  animation: tRotate 2s ease-in-out infinite;
+}
+body.touch #rotate-hint::after { content: '↻'; position: absolute; left: calc(50% + 30px); top: 22px; font-size: 26px; color: #ff6fa8; }
+@keyframes tRotate { 0%, 25% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
+
+/* ---------------- Ayarlar paneli (Dokunmatik) ---------------- */
+.t-settings .t-gyro { display: grid; gap: 6px; }
+.t-settings .t-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.t-settings .t-seg .btn { flex: 1 1 auto; min-width: 0; }
+.t-settings .t-seg .btn.t-on, .t-settings .t-seg .btn.t-on:hover { background: #ff6fa8; color: #fff; border-color: #fffaf3; box-shadow: 0 3px 0 rgba(59, 42, 74, 0.35), 0 0 0 3px #ffd23f; }
+.t-settings .t-set-note:empty { display: none; }
+body.touch .t-settings input[type=range] { min-height: 32px; }
+body.touch .t-settings .toggle { min-height: 36px; display: flex; align-items: center; gap: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  #touch .t-btn, #touch .t-use.show, #touch .t-streak, #touch .t-reload.alert, #touch .t-btn::after { animation: none !important; }
+  #touch .t-fire.auto::after, #touch .t-use.show::after, #touch .t-streak::after { opacity: 0.8; }
+}
