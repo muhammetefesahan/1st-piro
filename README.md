@@ -16,7 +16,7 @@ Günlük alışkanlıkları yerel olarak takip eden, tamamlanan adımlara göre 
 
 ### 02 — Gölge Timi · 6 Ekim 2026
 
-Tarayıcıda çalışan, piksel-art görünümlü **3D birinci şahıs nişancı oyunu**. Modern askerî FPS oyunlarından esinlenilmiştir; tüm isimler, haritalar, silahlar ve hikâye özgündür, hiçbir markayla bağlantısı yoktur.
+Tarayıcıda ve telefonda çalışan, sevimli çizgi film görünümlü **3D birinci şahıs nişancı oyunu**. Modern askerî FPS oyunlarından esinlenilmiştir; tüm isimler, haritalar, silahlar ve hikâye özgündür, hiçbir markayla bağlantısı yoktur.
 
 - Modlar: **Hikâye** (Kızıl Sis harekâtı, 5 görev) · **Online kapışma** (oda koduyla) · **Çok oyunculu** botlara karşı (Takım Ölüm Maçı, Bölge Kontrolü, Herkes Tek) · **Zombiler** (Kayıp Tesis) · **Atış Poligonu**
 - Her yöne koşu, kayma, dalış, tırmanma; **33 silah**, 7 yuvalı 3D **Silah Ustası**, 10 kamuflaj, 6 operatör, yakın dövüş silahları, sınıflar, yetenekler ve skor serileri
