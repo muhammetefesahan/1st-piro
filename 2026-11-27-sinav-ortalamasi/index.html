@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sınav Ortalaması</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <h1>Sınav Ortalaması</h1>
+    <form id="grade-form" autocomplete="off">
+      <label>1. sınav notu <input id="first" inputmode="decimal" required></label>
+      <label>2. sınav notu <input id="second" inputmode="decimal" required></label>
+      <button type="submit">Hesapla</button>
+    </form>
+    <output id="result" aria-live="polite"></output>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
